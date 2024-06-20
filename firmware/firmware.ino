@@ -77,36 +77,21 @@ void setup() {
         uint16_t rx_throttle = ibus.readChannel(2);
         uint16_t rx_enable = ibus.readChannel(4);
 
+        /*
         int steer = map(rx_steering, 1000, 2000, -50, 50);
         int speed = map(rx_throttle, 1000, 2000, 0, 255);
         int speed1 = speed + steer;
         int speed2 = speed - steer;
         speed1 = constrain(speed1, 0, 255);
         speed2 = constrain(speed2, 0, 255);
+        */
 
-        if (rx_enable > 1500) {
-            motors.write_speed(0, speed1);
-            motors.write_speed(1, speed1);
-            motors.write_speed(2, speed2);
-            motors.write_speed(3, speed2);
-        } else {
-            for (int i = 0; i < 4; i++) {
-                motors.write_speed(i, 0);
-            }
-        }
+        motors.write_ena(rx_enable > 1500);
+
+        int speed = map(rx_throttle, 1000, 2000, -255, 255);
+        motors.write_vel_both(speed);
 
         delay(10);
-
-        while (i < 255) {
-            motors.write_vel_both(i);
-            delay(30);
-            i++;
-        }
-        while (i > -255) {
-            motors.write_vel_both(i);
-            delay(30);
-            i--;
-        }
     };
 }
 
