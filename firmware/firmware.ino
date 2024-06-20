@@ -1,4 +1,4 @@
-//#include <IBusBM.h>
+#include <IBusBM.h>
 
 
 // pin order: ena, pul, dir
@@ -30,11 +30,11 @@ public:
     }
 
     void write_pwm_left(int pwm) {
-        analogWrite(3, pwm);
+        analogWrite(3, 255 - pwm);
     }
 
     void write_pwm_right(int pwm) {
-        analogWrite(6, pwm);
+        analogWrite(6, 255 - pwm);
     }
 
     void write_pwm_both(int pwm) {
@@ -60,20 +60,19 @@ public:
 
 
 Motors motors;
-//IBusBM ibus;
+IBusBM ibus;
 
 
 void setup() {
     delay(100);
 
     Serial.begin(9600);
-    //ibus.begin(Serial1, 2);
+    ibus.begin(Serial1, 2);
 
     int i = 0;
     motors.write_ena(true);
     while (true) {
         // read RC
-        /*
         uint16_t rx_steering = ibus.readChannel(0);
         uint16_t rx_throttle = ibus.readChannel(2);
         uint16_t rx_enable = ibus.readChannel(4);
@@ -97,17 +96,6 @@ void setup() {
         }
 
         delay(10);
-        */
-
-
-        //motors.write_vel_both(100);
-        //delay(1000);
-        //continue;
-        motors.write_ena(true);
-        delay(1000);
-        motors.write_ena(false);
-        delay(1000);
-        continue;
 
         while (i < 255) {
             motors.write_vel_both(i);
