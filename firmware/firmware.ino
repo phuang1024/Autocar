@@ -1,5 +1,8 @@
 #include <IBusBM.h>
 
+const float MIN_V = 3.1;
+const float BATT_S = 3;
+
 
 // pin order: ena, pul, dir
 class Motors {
@@ -48,7 +51,7 @@ public:
     }
 
     void write_vel_right(int vel) {
-        write_dir_right(vel >= 0);
+        write_dir_right(vel < 0);
         write_pwm_right(abs(vel));
     }
 
@@ -63,36 +66,49 @@ Motors motors;
 IBusBM ibus;
 
 
+float read_batt_v() {
+    int raw = analogRead(A0);
+    return (float)raw * 4 * 5 / 1023;
+}
+
+
 void setup() {
     delay(100);
 
     Serial.begin(9600);
-    ibus.begin(Serial1, 2);
+    ibus.begin(Serial1, 1);
 
-    int i = 0;
-    motors.write_ena(true);
+    unsigned long batt_low_time = 0;
+
     while (true) {
+        // check voltage
+        float batt_v = read_batt_v();
+        bool batt_low = batt_v < MIN_V * BATT_S;
+        if (batt_low) {
+            batt_low_time = millis();
+        }
+        batt_low = batt_low || (millis() - batt_low_time) < 1000;
+
         // read RC
         uint16_t rx_steering = ibus.readChannel(0);
         uint16_t rx_throttle = ibus.readChannel(2);
         uint16_t rx_enable = ibus.readChannel(4);
+        uint16_t rx_throttle2 = ibus.readChannel(1);
 
-        /*
-        int steer = map(rx_steering, 1000, 2000, -50, 50);
-        int speed = map(rx_throttle, 1000, 2000, 0, 255);
-        int speed1 = speed + steer;
-        int speed2 = speed - steer;
-        speed1 = constrain(speed1, 0, 255);
-        speed2 = constrain(speed2, 0, 255);
-        */
+        int speed1 = map(rx_throttle, 1000, 2000, -255, 255);
+        int speed2 = map(rx_throttle2, 1000, 2000, -255, 255);
 
-        motors.write_ena(rx_enable > 1500);
+        if (batt_low) {
+            motors.write_ena(false);
+        } else {
+            motors.write_ena(rx_enable > 1500);
+        }
 
-        int speed = map(rx_throttle, 1000, 2000, -255, 255);
-        motors.write_vel_both(speed);
+        motors.write_vel_left(speed1);
+        motors.write_vel_right(speed2);
 
         delay(10);
-    };
+    }
 }
 
 
