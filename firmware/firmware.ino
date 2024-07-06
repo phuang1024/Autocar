@@ -1,12 +1,27 @@
-#include <IBusBM.h>
+/*
+Communication with serial: 115200 baud
 
-const float MIN_V = 3.1;
-const float BATT_S = 3;
+Message:
+ena v1 v2
+v1, v2 are -255 to 255
+Example:
+1 0 255
+
+Response:
+batt rc1 rc2 rc3 rc4 rc5 rc6
+batt is volts.
+rc is 1000 to 2000.
+Example:
+10.4 1000 2000 1500 1234 1345 1234
+
+*/
+
+
+#include <IBusBM.h>
 
 
 // pin order: ena, pul, dir
-class Motors {
-public:
+struct Motors {
     Motors() {
         for (int i = 2; i <= 7; i++) {
             pinMode(i, OUTPUT);
@@ -62,50 +77,107 @@ public:
 };
 
 
+struct BattV {
+    const float MIN_V = 3.1;
+    const float BATT_S = 3;
+    const float LOW_THRES = MIN_V * BATT_S;
+    // Voltage splitter factor.
+    const float V_MULT = 4;
+    // Maintain a "low" status for this long.
+    const int LOW_COOLDOWN = 1000;
+
+    unsigned long low_time;
+    float voltage;
+
+    BattV() {
+        pinMode(A0, INPUT);
+        low_time = 0;
+        voltage = 0;
+    }
+
+    // Returns absolute voltage.
+    float read() {
+        int raw = analogRead(A0);
+        return (float)raw * V_MULT * 5 / 1023;
+    }
+
+    // Returns is_low, taking into account the cooldown.
+    bool update() {
+        voltage = read();
+        bool is_low = voltage < LOW_THRES;
+        if (is_low) {
+            low_time = millis();
+            return true;
+        }
+        return millis() - low_time < LOW_COOLDOWN;
+    }
+};
+
+
+struct SerialQuery {
+    bool ena;
+    int v1, v2;
+
+    // Read from Serial and initialize.
+    void read() {
+        if (Serial.available() > 0) {
+            int ena_value = Serial.parseInt();
+            ena = ena_value > 0;
+
+            if (Serial.available() > 0) {
+                v1 = Serial.parseInt();
+                v2 = Serial.parseInt();
+            }
+        } else {
+            ena = false;
+        }
+    }
+};
+
+
 Motors motors;
+BattV batt;
 IBusBM ibus;
-
-
-float read_batt_v() {
-    int raw = analogRead(A0);
-    return (float)raw * 4 * 5 / 1023;
-}
 
 
 void setup() {
     delay(100);
 
-    Serial.begin(9600);
+    Serial.begin(115200);
     ibus.begin(Serial1, 1);
 
-    unsigned long batt_low_time = 0;
-
     while (true) {
+        // read serial messages
+        SerialQuery query;
+        query.read();
+
         // check voltage
-        float batt_v = read_batt_v();
-        bool batt_low = batt_v < MIN_V * BATT_S;
-        if (batt_low) {
-            batt_low_time = millis();
-        }
-        batt_low = batt_low || (millis() - batt_low_time) < 1000;
+        bool batt_low = batt.update();
 
         // read RC
-        uint16_t rx_steering = ibus.readChannel(0);
-        uint16_t rx_throttle = ibus.readChannel(2);
-        uint16_t rx_enable = ibus.readChannel(4);
-        uint16_t rx_throttle2 = ibus.readChannel(1);
+        uint16_t rc_values[6];
+        for (int i = 0; i < 6; i++) {
+            rc_values[i] = ibus.readChannel(i);
+        }
 
-        int speed1 = map(rx_throttle, 1000, 2000, -255, 255);
-        int speed2 = map(rx_throttle2, 1000, 2000, -255, 255);
+        // send response
+        Serial.print(batt.voltage);
+        Serial.print(" ");
+        for (int i = 0; i < 6; i++) {
+            Serial.print(rc_values[i]);
+            Serial.print(" ");
+        }
+        Serial.println();
+        Serial.flush();
 
+        // update motors
         if (batt_low) {
             motors.write_ena(false);
         } else {
-            motors.write_ena(rx_enable > 1500);
+            motors.write_ena(query.ena);
         }
-
-        motors.write_vel_left(speed1);
-        motors.write_vel_right(speed2);
+        motors.write_vel_left(query.v1);
+        motors.write_vel_right(query.v2);
 
         delay(10);
     }
