@@ -37,7 +37,11 @@ class Interface:
     def worker(self):
         while self.run:
             # Read in
-            line = self.ser.readline().decode("utf-8").strip()
+            try:
+                line = self.ser.readline().decode("utf-8").strip()
+            except UnicodeDecodeError:
+                continue
+
             items = line.strip().split(" ")
             if len(items) != 7:
                 continue
@@ -52,11 +56,11 @@ class Interface:
 
 def main(interface: Interface):
     while True:
-        print(interface.voltage, interface.rc_values)
         interface.ena = interface.rc_values[4] > 0.5
-        interface.v1 = interface.rc_values[2]
+        interface.v1 = interface.rc_values[2] * 2 - 1
+        interface.v2 = interface.rc_values[1] * 2 - 1
 
-        time.sleep(0.5)
+        time.sleep(0.1)
 
 
 if __name__ == "__main__":
