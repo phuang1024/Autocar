@@ -9,7 +9,7 @@ import depthai
 def create_pipeline():
     pipeline = depthai.Pipeline()
     cam_rgb = pipeline.createColorCamera()
-    cam_rgb.setPreviewSize(900, 900)
+    cam_rgb.setPreviewSize(200, 150)
     cam_rgb.setInterleaved(False)
 
     xout_rgb = pipeline.createXLinkOut()
@@ -24,11 +24,12 @@ def gen_data(args, interface):
     with depthai.Device(pipeline) as device:
         q_rgb = device.getOutputQueue("rgb")
 
+        img_rgb = None
         while True:
-            while True:
+            while q_rgb.has():
                 img_rgb = q_rgb.get()
-                if img_rgb is not None:
-                    break
+            if img_rgb is None:
+                continue
 
             img_rgb = img_rgb.getCvFrame()
             cv2.imshow("rgb", img_rgb)
