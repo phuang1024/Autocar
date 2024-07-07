@@ -2,6 +2,8 @@
 Scripts for generating train data.
 """
 
+import time
+
 import cv2
 import depthai
 
@@ -19,19 +21,23 @@ def create_pipeline():
     return pipeline
 
 
+def read_latest(queue):
+    data = None
+    while queue.has() or data is None:
+        data = queue.get()
+        time.sleep(0.01)
+    return data
+
+
 def gen_data(args, interface):
     pipeline = create_pipeline()
     with depthai.Device(pipeline) as device:
         q_rgb = device.getOutputQueue("rgb")
 
-        img_rgb = None
         while True:
-            while q_rgb.has():
-                img_rgb = q_rgb.get()
-            if img_rgb is None:
-                continue
-
+            img_rgb = read_latest(q_rgb)
             img_rgb = img_rgb.getCvFrame()
+
             cv2.imshow("rgb", img_rgb)
             key = cv2.waitKey(1)
             if key == ord("q"):
