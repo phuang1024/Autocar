@@ -14,6 +14,7 @@ def main(interface: Interface):
     data_p = subp.add_parser("data")
     data_p.add_argument("--interval", type=float, default=3)
     data_p.add_argument("--dir", type=str, required=True)
+    data_p.add_argument("--res", type=int, default=256)
 
     args = parser.parse_args()
 

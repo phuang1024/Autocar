@@ -10,11 +10,11 @@ import cv2
 import depthai
 
 
-def create_pipeline():
+def create_pipeline(res):
     pipeline = depthai.Pipeline()
 
     cam_rgb = pipeline.createColorCamera()
-    cam_rgb.setPreviewSize(200, 150)
+    cam_rgb.setPreviewSize(res, res)
     cam_rgb.setInterleaved(False)
 
     imu = pipeline.createIMU()
@@ -57,7 +57,7 @@ def gen_data(args, interface):
 
     interface.begin_std_rc()
 
-    pipeline = create_pipeline()
+    pipeline = create_pipeline(args.res)
     print("Setup Depthai pipeline.")
     with depthai.Device(pipeline) as device:
         q_rgb = device.getOutputQueue("rgb")
