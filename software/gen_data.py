@@ -10,13 +10,21 @@ import depthai
 
 def create_pipeline():
     pipeline = depthai.Pipeline()
+
     cam_rgb = pipeline.createColorCamera()
     cam_rgb.setPreviewSize(200, 150)
     cam_rgb.setInterleaved(False)
 
+    imu = pipeline.createIMU()
+    imu.setBatchReportThreshold(1)
+
     xout_rgb = pipeline.createXLinkOut()
     xout_rgb.setStreamName("rgb")
     cam_rgb.preview.link(xout_rgb.input)
+
+    xout_imu = pipeline.createXLinkOut()
+    xout_imu.setStreamName("imu")
+    imu.out.link(xout_imu.input)
 
     return pipeline
 
@@ -33,6 +41,7 @@ def gen_data(args, interface):
     pipeline = create_pipeline()
     with depthai.Device(pipeline) as device:
         q_rgb = device.getOutputQueue("rgb")
+        q_imu = device.getOutputQueue("imu")
 
         while True:
             img_rgb = read_latest(q_rgb)
@@ -42,3 +51,8 @@ def gen_data(args, interface):
             key = cv2.waitKey(1)
             if key == ord("q"):
                 break
+
+            imu_data = read_latest(q_imu)
+            print(imu_data)
+
+            time.sleep(0.1)
