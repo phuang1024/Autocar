@@ -5,15 +5,6 @@ from gen_data import gen_data
 from interface import Interface
 
 
-def rc(args, interface: Interface):
-    while True:
-        interface.ena = interface.rc_values[4] > 0.5
-        interface.v1 = interface.rc_values[2] * 2 - 1
-        interface.v2 = interface.rc_values[1] * 2 - 1
-
-        time.sleep(0.03)
-
-
 def main(interface: Interface):
     parser = argparse.ArgumentParser()
     subp = parser.add_subparsers(dest="command", required=True)
@@ -22,11 +13,16 @@ def main(interface: Interface):
 
     data_p = subp.add_parser("data")
     data_p.add_argument("--interval", type=float, default=3)
+    data_p.add_argument("--dir", type=str, required=True)
 
     args = parser.parse_args()
 
     if args.command == "rc":
-        rc(args, interface)
+        interface.begin_std_rc()
+        while True:
+            print(interface.rc_values)
+            time.sleep(0.1)
+
     elif args.command == "data":
         gen_data(args, interface)
 
@@ -39,3 +35,5 @@ if __name__ == "__main__":
         main(interface)
     finally:
         interface.quit()
+
+    print("Autocar quit.")
