@@ -61,10 +61,10 @@ def train_main(args, interface):
             online_enabled = interface.rc_values[5] > 0.5
 
             # Check for new data.
-            if online_enabled and time.time() - last_new_data > args.new_data_ival:
+            if online_enabled:# and time.time() - last_new_data > args.new_data_ival:
                 last_new_data = time.time()
-                if random.random() < abs(interface.rc_values[0] - 0.5) + 0.2:
-                    post_new_data(args, img_rgb, interface.rc_values[0] * 2 - 1)
+                if random.random() < abs(interface.rc_values[0] - 0.5) + 0.5:
+                    post_new_data(args, img_rgb, interface.rc_values[0] * 2 - 1 + pred)
 
             # Check for new model.
             if online_enabled and time.time() - last_new_model > args.new_model_ival:
