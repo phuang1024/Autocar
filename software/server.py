@@ -163,7 +163,7 @@ def main():
     results_dir.mkdir(parents=True, exist_ok=True)
 
     server = socket(AF_INET, SOCK_STREAM)
-    server.bind(("localhost", args.port))
+    server.bind(("0.0.0.0", args.port))
     server.listen()
     print(f"Server is listening on port {args.port}")
 

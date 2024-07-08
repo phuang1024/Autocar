@@ -11,6 +11,8 @@ import torchvision
 from camera import *
 from conn import *
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def create_model():
     model = torchvision.models.resnet18()
@@ -77,7 +79,7 @@ def train_main(args, interface):
                     with open("/tmp/model.pt", "wb") as f:
                         f.write(model_data)
                     try:
-                        model.load_state_dict(torch.load("/tmp/model.pt"))
+                        model.load_state_dict(torch.load("/tmp/model.pt", map_location=DEVICE))
                     except Exception as e:
                         print("Model update failed:", e)
                     else:
