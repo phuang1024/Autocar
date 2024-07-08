@@ -6,6 +6,7 @@ from threading import Thread
 
 import torch
 import torchvision
+import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader, random_split
 
 from conn import *
@@ -60,10 +61,24 @@ def socket_main(args, server, run):
         thread.start()
 
 
+class Augmentation(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.aug = torchvision.transforms.Compose([
+            T.RandomRotation(15),
+            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
+            T.RandomResizedCrop(256, scale=(0.8, 1.0)),
+        ])
+
+    def forward(self, x):
+        return self.aug(x)
+
+
 class ImageDataset(Dataset):
     def __init__(self, dir):
         self.dir = dir
         self.files = list(dir.glob("*.jpg"))
+        self.transform = Augmentation()
 
     def __len__(self):
         return len(self.files)
@@ -74,6 +89,7 @@ class ImageDataset(Dataset):
             label = torch.tensor(label).float()
         img = torchvision.io.read_image(str(self.files[i]))
         img = img.float() / 255
+        img = self.transform(img)
         return img, label
 
 
