@@ -67,7 +67,7 @@ class Augmentation(torch.nn.Module):
         self.aug = torchvision.transforms.Compose([
             T.RandomRotation(15),
             T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
-            T.RandomResizedCrop(256, scale=(0.8, 1.0)),
+            T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True),
         ])
 
     def forward(self, x):
