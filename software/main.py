@@ -24,8 +24,11 @@ def main(interface: Interface):
     data_p.add_argument("--interval", type=float, default=3)
     data_p.add_argument("--dir", type=str, required=True)
 
-    rein_p = subp.add_parser("train")
-    rein_p.add_argument("--infer-time", type=float, default=0.1)
+    train_p = subp.add_parser("train")
+    train_p.add_argument("--ip", type=str, default="localhost")
+    train_p.add_argument("--port", type=int, default=7895)
+    train_p.add_argument("--infer-ival", type=float, default=0.1)
+    train_p.add_argument("--new-data-ival", type=float, default=3)
 
     args = parser.parse_args()
 

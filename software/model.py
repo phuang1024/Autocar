@@ -1,10 +1,15 @@
 import math
+import random
 import time
+from socket import socket, AF_INET, SOCK_STREAM
+
+import cv2
 
 import torch
 import torchvision
 
 from camera import *
+from conn import *
 
 
 def create_model():
@@ -13,12 +18,30 @@ def create_model():
     return model
 
 
+def create_conn(args):
+    conn = socket(AF_INET, SOCK_STREAM)
+    conn.connect((args.ip, args.port))
+    return conn
+
+
+def post_new_data(args, img, label):
+    conn = create_conn(args)
+    cv2.imwrite("/tmp/img.jpg", img)
+    with open("/tmp/img.jpg", "rb") as f:
+        img_data = f.read()
+    sendobj(conn, {"type": "new_data", "img": img_data, "label": label})
+
+
 def train_main(args, interface):
+    """
+    Main for reinforcement learning client (car).
+    """
     model = create_model()
     pipeline = create_pipeline(args.res)
 
     interface.add_thread(interface.auto_rc)
 
+    last_new_data = 0
     with depthai.Device(pipeline) as device:
         q_rgb = device.getOutputQueue("rgb")
 
@@ -30,6 +53,14 @@ def train_main(args, interface):
             pred = model(img).item()
             pred = math.tanh(pred)
             interface.nn_pred = pred
-            print(pred)
+            #print("pred", pred)
 
-            time.sleep(args.infer_time)
+            # Check for new data.
+            if (
+                    time.time() - last_new_data > args.new_data_ival
+                    and random.random() < 0.1
+                    and abs(interface.rc_values[0] - 0.5) > 0.1):
+                last_new_data = time.time()
+                post_new_data(args, img_rgb, interface.rc_values[0] * 2 - 1)
+
+            time.sleep(args.infer_ival)
