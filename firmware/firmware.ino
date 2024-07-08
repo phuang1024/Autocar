@@ -78,7 +78,7 @@ struct Motors {
 
 
 struct BattV {
-    const float MIN_V = 3.1;
+    const float MIN_V = 3.2;
     const float BATT_S = 3;
     const float LOW_THRES = MIN_V * BATT_S;
     // Voltage splitter factor.
@@ -89,10 +89,18 @@ struct BattV {
     unsigned long low_time;
     float voltage;
 
+    unsigned long flash_time;
+    bool flash_state;
+
     BattV() {
         pinMode(A0, INPUT);
+        pinMode(13, OUTPUT);
+
         low_time = 0;
         voltage = 0;
+
+        flash_time = 0;
+        flash_state = true;
     }
 
     // Returns absolute voltage.
@@ -106,8 +114,17 @@ struct BattV {
         voltage = read();
         bool is_low = voltage < LOW_THRES;
         if (is_low) {
+            // update flash
+            if (millis() - flash_time > 1000) {
+                flash_state = !flash_state;
+                flash_time = millis();
+                digitalWrite(13, flash_state);
+            }
+
             low_time = millis();
             return true;
+        } else {
+            digitalWrite(13, HIGH);
         }
         return millis() - low_time < LOW_COOLDOWN;
     }
