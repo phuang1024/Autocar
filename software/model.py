@@ -80,9 +80,8 @@ def train_main(args, interface):
                         f.write(model_data)
                     try:
                         model.load_state_dict(torch.load("/tmp/model.pt", map_location=DEVICE))
+                        print("Model updated.")
                     except Exception as e:
                         print("Model update failed:", e)
-                    else:
-                        print("Model updated.")
 
             time.sleep(args.infer_ival)
