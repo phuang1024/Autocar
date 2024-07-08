@@ -7,38 +7,8 @@ from math import atan2
 from pathlib import Path
 
 import cv2
-import depthai
 
-
-def create_pipeline(res):
-    pipeline = depthai.Pipeline()
-
-    cam_rgb = pipeline.createColorCamera()
-    cam_rgb.setPreviewSize(res, res)
-    cam_rgb.setInterleaved(False)
-
-    imu = pipeline.createIMU()
-    imu.enableIMUSensor([depthai.IMUSensor.ROTATION_VECTOR], 10)
-    imu.setBatchReportThreshold(1)
-    imu.setMaxBatchReports(1)
-
-    xout_rgb = pipeline.createXLinkOut()
-    xout_rgb.setStreamName("rgb")
-    cam_rgb.preview.link(xout_rgb.input)
-
-    xout_imu = pipeline.createXLinkOut()
-    xout_imu.setStreamName("imu")
-    imu.out.link(xout_imu.input)
-
-    return pipeline
-
-
-def read_latest(queue):
-    data = None
-    while queue.has() or data is None:
-        data = queue.get()
-        time.sleep(0.01)
-    return data
+from camera import *
 
 
 def get_z_euler(quat):
@@ -55,7 +25,7 @@ def gen_data(args, interface):
         if file.is_file and file.stem.isdigit():
             i = max(i, int(file.stem) + 1)
 
-    interface.begin_std_rc()
+    interface.add_thread(interface.standard_rc)
 
     pipeline = create_pipeline(args.res)
     print("Setup Depthai pipeline.")
@@ -64,8 +34,7 @@ def gen_data(args, interface):
         q_imu = device.getOutputQueue("imu")
 
         while True:
-            img_rgb = read_latest(q_rgb)
-            img_rgb = img_rgb.getCvFrame()
+            img_rgb = read_latest(q_rgb).getCvFrame()
 
             imu_data = read_latest(q_imu)
             quat = imu_data.packets[0].rotationVector
