@@ -42,6 +42,7 @@ def train_main(args, interface):
     interface.add_thread(interface.auto_rc)
 
     last_new_data = 0
+    last_new_model = 0
     with depthai.Device(pipeline) as device:
         q_rgb = device.getOutputQueue("rgb")
 
@@ -60,5 +61,24 @@ def train_main(args, interface):
                 last_new_data = time.time()
                 if random.random() < abs(interface.rc_values[0] - 0.5) + 0.2:
                     post_new_data(args, img_rgb, interface.rc_values[0] * 2 - 1)
+
+            # Check for new model.
+            if time.time() - last_new_model > args.new_model_ival:
+                last_new_model = time.time()
+
+                conn = create_conn(args)
+                sendobj(conn, {"type": "get_model"})
+                model_data = recvobj(conn)["model"]
+                conn.close()
+
+                if model_data is not None:
+                    with open("/tmp/model.pt", "wb") as f:
+                        f.write(model_data)
+                    try:
+                        model.load_state_dict(torch.load("/tmp/model.pt"))
+                    except Exception as e:
+                        print("Model update failed:", e)
+                    else:
+                        print("Model updated.")
 
             time.sleep(args.infer_ival)

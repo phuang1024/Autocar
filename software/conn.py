@@ -16,7 +16,7 @@ def recvobj(sock):
     data = b""
     i = 0
     while len(data) < size:
-        data = sock.recv(size - len(data))
+        data += sock.recv(size - len(data))
         i += 1
         time.sleep(0.003)
         if i > 10000:

@@ -121,30 +121,30 @@ def train(args):
             time.sleep(5)
             continue
 
-        print(f"Train epoch {epoch}, step {step}")
+        #print(f"Train epoch {epoch}, step {step}")
         model.train()
         total_loss = 0
         for img, label in train_loader:
             img, label = img.to(DEVICE), label.to(DEVICE)
             optimizer.zero_grad()
-            pred = model(img).squeeze()
+            pred = model(img).squeeze(1)
             loss = criterion(pred, label)
             loss.backward()
             total_loss += loss.item()
             optimizer.step()
             step += 1
-        print(f"Train loss: {total_loss / len(train_loader)}")
+        #print(f"Train loss: {total_loss / len(train_loader)}")
 
-        print(f"Validation epoch {epoch}")
+        #print(f"Validation epoch {epoch}")
         model.eval()
         with torch.no_grad():
             total_loss = 0
             for img, label in val_loader:
                 img, label = img.to(DEVICE), label.to(DEVICE)
-                pred = model(img).squeeze()
+                pred = model(img).squeeze(1)
                 loss = criterion(pred, label)
                 total_loss += loss.item()
-            print(f"Validation loss: {total_loss / len(val_loader)}")
+        #print(f"Validation loss: {total_loss / len(val_loader)}")
 
         torch.save(model.state_dict(), results_dir / "model.pt")
 

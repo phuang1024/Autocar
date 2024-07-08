@@ -29,6 +29,7 @@ def main(interface: Interface):
     train_p.add_argument("--port", type=int, default=7895)
     train_p.add_argument("--infer-ival", type=float, default=0.1)
     train_p.add_argument("--new-data-ival", type=float, default=1)
+    train_p.add_argument("--new-model-ival", type=float, default=5)
 
     args = parser.parse_args()
 
