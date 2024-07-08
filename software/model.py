@@ -56,14 +56,16 @@ def train_main(args, interface):
             interface.nn_pred = pred
             #print("pred", pred)
 
+            online_enabled = interface.rc_values[5] > 0.5
+
             # Check for new data.
-            if time.time() - last_new_data > args.new_data_ival:
+            if online_enabled and time.time() - last_new_data > args.new_data_ival:
                 last_new_data = time.time()
                 if random.random() < abs(interface.rc_values[0] - 0.5) + 0.2:
                     post_new_data(args, img_rgb, interface.rc_values[0] * 2 - 1)
 
             # Check for new model.
-            if time.time() - last_new_model > args.new_model_ival:
+            if online_enabled and time.time() - last_new_model > args.new_model_ival:
                 last_new_model = time.time()
 
                 conn = create_conn(args)
