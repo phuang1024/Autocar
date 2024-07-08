@@ -56,7 +56,7 @@ def train_main(args, interface):
             pred = model(img).item()
             pred = math.tanh(pred)
             interface.nn_pred = pred
-            print("pred", pred)
+            #print("pred", pred)
 
             online_enabled = interface.rc_values[5] > 0.5
 
