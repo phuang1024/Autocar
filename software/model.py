@@ -56,11 +56,9 @@ def train_main(args, interface):
             #print("pred", pred)
 
             # Check for new data.
-            if (
-                    time.time() - last_new_data > args.new_data_ival
-                    and random.random() < 0.1
-                    and abs(interface.rc_values[0] - 0.5) > 0.1):
+            if time.time() - last_new_data > args.new_data_ival:
                 last_new_data = time.time()
-                post_new_data(args, img_rgb, interface.rc_values[0] * 2 - 1)
+                if random.random() < abs(interface.rc_values[0] - 0.5) + 0.2:
+                    post_new_data(args, img_rgb, interface.rc_values[0] * 2 - 1)
 
             time.sleep(args.infer_ival)
