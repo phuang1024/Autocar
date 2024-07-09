@@ -31,20 +31,35 @@ class Augmentation(torch.nn.Module):
 class ImageDataset(Dataset):
     def __init__(self, dir):
         self.dir = dir
-        self.files = list(dir.glob("*.jpg"))
+        self.indices = []
         self.transform = Augmentation()
 
+        for file in dir.glob("*.jpg"):
+            if (ind := file.split(".")[0]).isdigit():
+                self.indices.append(int(ind))
+
     def __len__(self):
-        return len(self.files)
+        return len(self.indices)
 
     def __getitem__(self, i):
-        with open(self.files[i].with_suffix(".txt"), "r") as f:
+        with open(self.dir / f"{i}.txt", "r") as f:
             label = float(f.read())
             label = torch.tensor(label).float()
-        img = torchvision.io.read_image(str(self.files[i]))
-        img = img.float() / 255
-        img = self.transform(img)
-        return img, label
+
+        color = torchvision.io.read_image(str(self.dir / f"{i}.rgb.jpg"))
+        color = color.float() / 255
+        gray = color.mean(dim=0, keepdim=True)
+
+        depth = torchvision.io.read_image(str(self.dir / f"{i}.depth.jpg"))
+        depth = depth.float() / 255
+
+        depth_conf = torchvision.io.read_image(str(self.dir / f"{i}.depth_conf.jpg"))
+        depth_conf = depth_conf.float() / 255
+
+        x = torch.cat([gray, depth, depth_conf], dim=0)
+        x = self.transform(x)
+
+        return x, label
 
 
 class AutocarModel(torch.nn.Module):

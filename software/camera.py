@@ -38,7 +38,7 @@ def create_pipeline(res):
 
     xout_depth = pipeline.createXLinkOut()
     xout_depth.setStreamName("depth")
-    depth.depth.link(xout_depth.input)
+    depth.disparity.link(xout_depth.input)
 
     xout_depth_conf = pipeline.createXLinkOut()
     xout_depth_conf.setStreamName("depth_conf")

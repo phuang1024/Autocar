@@ -35,12 +35,16 @@ def gen_data(args, interface):
             img_depth = (img_depth / np.max(img_depth) * 255).astype(np.uint8)
             img_depth_conf = read_latest(q_depth_conf).getFrame()
 
+            """
             cv2.imshow("depth", img_depth)
             cv2.imshow("depth_conf", img_depth_conf)
             cv2.waitKey(1)
+            """
 
             if interface.rc_values[5] > 0.5:
-                cv2.imwrite(str(dir / f"{i}.jpg"), img_rgb)
+                cv2.imwrite(str(dir / f"{i}.rgb.jpg"), img_rgb)
+                cv2.imwrite(str(dir / f"{i}.depth.jpg"), img_depth)
+                cv2.imwrite(str(dir / f"{i}.depth_conf.jpg"), img_depth_conf)
 
                 label = interface.rc_values[0] * 2 - 1
                 with open(dir / f"{i}.txt", "w") as f:
