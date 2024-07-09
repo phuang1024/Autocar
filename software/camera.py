@@ -10,6 +10,21 @@ def create_pipeline(res):
     cam_rgb.setPreviewSize(res, res)
     cam_rgb.setInterleaved(False)
 
+    depth_left = pipeline.createMonoCamera()
+    depth_left.setCamera("left")
+    depth_left.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
+
+    depth_right = pipeline.createMonoCamera()
+    depth_right.setCamera("right")
+    depth_right.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
+
+    depth = pipeline.createStereoDepth()
+    depth.setLeftRightCheck(True)
+    depth.setExtendedDisparity(False)
+    depth.setSubpixel(False)
+    depth_left.out.link(depth.left)
+    depth_right.out.link(depth.right)
+
     """
     imu = pipeline.createIMU()
     imu.enableIMUSensor([depthai.IMUSensor.ROTATION_VECTOR], 10)
@@ -21,9 +36,19 @@ def create_pipeline(res):
     xout_rgb.setStreamName("rgb")
     cam_rgb.preview.link(xout_rgb.input)
 
-    xout_imu = pipeline.createXLinkOut()
+    xout_depth = pipeline.createXLinkOut()
+    xout_depth.setStreamName("depth")
+    depth.depth.link(xout_depth.input)
+
+    xout_depth_conf = pipeline.createXLinkOut()
+    xout_depth_conf.setStreamName("depth_conf")
+    depth.confidenceMap.link(xout_depth_conf.input)
+
+    """
+    xout_imu = pipeline.createXLinkOut#()
     xout_imu.setStreamName("imu")
-    #imu.out.link(xout_imu.input)
+    imu.out.link(xout_imu.input)
+    """
 
     return pipeline
 
