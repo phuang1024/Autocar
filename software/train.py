@@ -7,6 +7,7 @@ import torch
 import torchvision
 import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.tensorboard import SummaryWriter
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -76,6 +77,8 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
+    writer = SummaryWriter(args.dir / "logs")
+
     step = 0
     for epoch in range(args.epochs):
         model.train()
@@ -90,7 +93,8 @@ def train(args):
             optimizer.step()
             step += 1
 
-            pbar.set_description(f"Epoch {epoch + 1}/{args.epochs}, loss: {total_loss / loss.item():.4f}")
+            pbar.set_description(f"Train: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
+            writer.add_scalar("train_loss", loss.item(), step)
 
         model.eval()
         with torch.no_grad():
@@ -101,7 +105,8 @@ def train(args):
                 loss = criterion(pred, label)
                 total_loss += loss.item()
 
-                pbar.set_description(f"Epoch {epoch + 1}/{args.epochs}, loss: {total_loss / loss.item():.4f}")
+                pbar.set_description(f"Test: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
+            writer.add_scalar("val_loss", total_loss / len(val_loader), epoch)
 
         torch.save(model.state_dict(), args.dir / "model.pt")
         scheduler.step()
@@ -110,7 +115,7 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=Path, default="results", help="Dir with training results.")
-    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--epochs", type=int, default=20)
     args = parser.parse_args()
 
     args.dir.mkdir(parents=True, exist_ok=True)
