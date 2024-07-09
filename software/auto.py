@@ -10,7 +10,7 @@ def auto_main(args, interface):
     """
     Main for auto driving.
     """
-    model = AutocarModel()
+    model = AutocarModel().to(DEVICE)
     pipeline = create_pipeline(args.res)
 
     interface.add_thread(interface.auto_rc)
