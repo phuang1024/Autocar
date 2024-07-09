@@ -21,7 +21,7 @@ def main(interface: Interface):
     rc_p = subp.add_parser("rc")
 
     data_p = subp.add_parser("data")
-    data_p.add_argument("--interval", type=float, default=3)
+    data_p.add_argument("--interval", type=float, default=0)
     data_p.add_argument("--dir", type=str, required=True)
 
     auto_p = subp.add_parser("auto")

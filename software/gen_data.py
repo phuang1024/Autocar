@@ -31,8 +31,9 @@ def gen_data(args, interface):
 
             if interface.rc_values[5] > 0.5:
                 cv2.imwrite(str(dir / f"{i}.jpg"), img_rgb)
+                label = interface.rc_values[0] * 2 - 1
                 with open(dir / f"{i}.txt", "w") as f:
-                    f.write(f"{interface.rc_values[0]}\n")
+                    f.write(f"{label}\n")
                 print("Write", i)
                 i += 1
 
