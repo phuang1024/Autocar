@@ -14,6 +14,8 @@ if __name__ == "__main__":
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+_resize_256 = T.Resize(256, antialias=True)
+
 
 class Augmentation(torch.nn.Module):
     def __init__(self):
@@ -34,9 +36,11 @@ class ImageDataset(Dataset):
         self.indices = []
         self.transform = Augmentation()
 
+        indices = set()
         for file in dir.glob("*.jpg"):
-            if (ind := file.split(".")[0]).isdigit():
-                self.indices.append(int(ind))
+            if (ind := file.name.split(".")[0]).isdigit():
+                indices.add(int(ind))
+        self.indices = sorted(indices)
 
     def __len__(self):
         return len(self.indices)
@@ -48,7 +52,6 @@ class ImageDataset(Dataset):
 
         color = torchvision.io.read_image(str(self.dir / f"{i}.rgb.jpg"))
         color = color.float() / 255
-        gray = color.mean(dim=0, keepdim=True)
 
         depth = torchvision.io.read_image(str(self.dir / f"{i}.depth.jpg"))
         depth = depth.float() / 255
@@ -56,10 +59,29 @@ class ImageDataset(Dataset):
         depth_conf = torchvision.io.read_image(str(self.dir / f"{i}.depth_conf.jpg"))
         depth_conf = depth_conf.float() / 255
 
-        x = torch.cat([gray, depth, depth_conf], dim=0)
+        x = preprocess_data(color, depth, depth_conf)
         x = self.transform(x)
 
         return x, label
+
+
+def preprocess_data(color, depth, depth_conf):
+    """
+    Crops and resizes all to 256.
+    Converts color to grayscale.
+    Concats along the channel dimension.
+    """
+    def crop_resize(img):
+        diff = img.shape[2] - img.shape[1]
+        img = img[:, :, diff // 2 : -diff // 2]
+        img = _resize_256(img)
+        return img
+
+    gray = color.mean(dim=0, keepdim=True)
+    depth = crop_resize(depth)
+    depth_conf = crop_resize(depth_conf)
+
+    return torch.cat([gray, depth, depth_conf], dim=0)
 
 
 class AutocarModel(torch.nn.Module):
@@ -79,9 +101,10 @@ def preview_data(dataset):
     # Make grid with torchvision
     loader = DataLoader(dataset, batch_size=16, shuffle=True)
     x, y = next(iter(loader))
-    grid = torchvision.utils.make_grid(x, nrow=4)
-    plt.imshow(grid.permute(1, 2, 0))
-    plt.show()
+    for i in range(3):
+        grid = torchvision.utils.make_grid(x[:, i:i+1, ...], nrow=4)
+        plt.imshow(grid.permute(1, 2, 0))
+        plt.show()
 
 
 def histogram(model, dataset):
@@ -119,7 +142,7 @@ def train(args):
 
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
     writer = SummaryWriter(args.dir / "logs")
     step = 0
