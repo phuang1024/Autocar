@@ -122,7 +122,7 @@ def train(args):
 
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94)
 
     writer = SummaryWriter(args.dir / "logs")
     step = 0
@@ -159,6 +159,7 @@ def train(args):
 
                 pbar.set_description(f"Test: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
             writer.add_scalar("val_loss", total_loss / len(val_loader), epoch)
+            writer.add_scalar("lr", optimizer.param_groups[0]["lr"], epoch)
 
         torch.save(model.state_dict(), args.dir / "model.pt")
         scheduler.step()
