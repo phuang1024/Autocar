@@ -1,14 +1,16 @@
 import argparse
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 import torch
 import torchvision
 import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader, random_split
-from torch.utils.tensorboard import SummaryWriter
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    from torch.utils.tensorboard import SummaryWriter
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
