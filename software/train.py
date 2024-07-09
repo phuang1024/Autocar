@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 import torch
@@ -16,8 +17,8 @@ class Augmentation(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.aug = torchvision.transforms.Compose([
-            T.RandomRotation(15),
-            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
+            T.RandomRotation(5),
+            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
             T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True),
         ])
 
@@ -57,6 +58,29 @@ class AutocarModel(torch.nn.Module):
         return x
 
 
+def preview_data(dataset):
+    # Make grid with torchvision
+    loader = DataLoader(dataset, batch_size=16, shuffle=True)
+    x, y = next(iter(loader))
+    grid = torchvision.utils.make_grid(x, nrow=4)
+    plt.imshow(grid.permute(1, 2, 0))
+    plt.show()
+
+
+def histogram(model, dataset):
+    loader = DataLoader(dataset, batch_size=32, num_workers=4, pin_memory=True)
+
+    model.eval()
+    with torch.no_grad():
+        preds = []
+        for x, _ in tqdm(loader, desc="Histogram"):
+            x = x.to(DEVICE)
+            y = model(x).squeeze(1)
+            preds.extend(y.cpu().numpy())
+        plt.hist(preds, bins=40)
+        plt.show()
+
+
 def train(args):
     dataset = ImageDataset(args.dir)
     train_len = int(len(dataset) * 0.8)
@@ -72,22 +96,29 @@ def train(args):
     val_loader = DataLoader(val_set, **loader_args)
 
     model = AutocarModel().to(DEVICE)
+    if args.resume:
+        model.load_state_dict(torch.load(args.dir / "model.pt"))
 
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
     writer = SummaryWriter(args.dir / "logs")
-
     step = 0
+
+    #preview_data(dataset)
+    #stop
+    #histogram(model, dataset)
+    #stop
+
     for epoch in range(args.epochs):
         model.train()
         total_loss = 0
-        for img, label in (pbar := tqdm(train_loader)):
-            img, label = img.to(DEVICE), label.to(DEVICE)
+        for x, y in (pbar := tqdm(train_loader)):
+            x, y = x.to(DEVICE), y.to(DEVICE)
             optimizer.zero_grad()
-            pred = model(img).squeeze(1)
-            loss = criterion(pred, label)
+            pred = model(x).squeeze(1)
+            loss = criterion(pred, y)
             loss.backward()
             total_loss += loss.item()
             optimizer.step()
@@ -99,10 +130,10 @@ def train(args):
         model.eval()
         with torch.no_grad():
             total_loss = 0
-            for img, label in (pbar := tqdm(val_loader)):
-                img, label = img.to(DEVICE), label.to(DEVICE)
-                pred = model(img).squeeze(1)
-                loss = criterion(pred, label)
+            for x, y in (pbar := tqdm(val_loader)):
+                x, y = x.to(DEVICE), y.to(DEVICE)
+                pred = model(x).squeeze(1)
+                loss = criterion(pred, y)
                 total_loss += loss.item()
 
                 pbar.set_description(f"Test: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
@@ -116,6 +147,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=Path, default="results", help="Dir with training results.")
     parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--resume", action="store_true", help="Resume from dir/model.pt")
     args = parser.parse_args()
 
     args.dir.mkdir(parents=True, exist_ok=True)

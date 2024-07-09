@@ -11,6 +11,8 @@ def auto_main(args, interface):
     Main for auto driving.
     """
     model = AutocarModel().to(DEVICE)
+    model.load_state_dict(torch.load(args.model_path))
+    print("Load from model:", args.model_path)
     pipeline = create_pipeline(args.res)
 
     interface.add_thread(interface.auto_rc)
