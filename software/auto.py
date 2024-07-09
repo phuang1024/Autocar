@@ -30,7 +30,6 @@ def auto_main(args, interface):
                 with torch.no_grad():
                     img = torch.tensor(img_rgb).permute(2, 0, 1).unsqueeze(0).float() / 255
                     pred = model(img).item()
-                interface.nn_pred = pred
             else:
                 pred = 0
             interface.nn_pred = pred
