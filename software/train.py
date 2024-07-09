@@ -50,12 +50,13 @@ class ImageDataset(Dataset):
 
         color = torchvision.io.read_image(str(self.dir / f"{i}.rgb.jpg"))
         color = color.float() / 255
+        color = torch.mean(color, dim=0, keepdim=True)
 
         depth = torchvision.io.read_image(str(self.dir / f"{i}.depth.jpg"))
-        depth = depth.unsqueeze(0).float() / 255
+        depth = depth.float() / 255
 
         depth_conf = torchvision.io.read_image(str(self.dir / f"{i}.depth_conf.jpg"))
-        depth_conf = depth_conf.unsqueeze(0).float() / 255
+        depth_conf = depth_conf.float() / 255
 
         x = torch.cat([color, depth, depth_conf], dim=0)
         x = self.transform(x)
