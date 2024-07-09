@@ -75,7 +75,7 @@ class PipelineWrapper:
 
 def crop_resize(img):
     diff = img.shape[1] - img.shape[0]
-    img = img[:, diff // 2 : -diff // 2]
+    img = img[diff // 2 : -diff // 2]
     img = cv2.resize(img, (256, 256))
     return img
 
