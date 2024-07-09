@@ -20,7 +20,7 @@ class Augmentation(torch.nn.Module):
         super().__init__()
         self.aug = torchvision.transforms.Compose([
             T.RandomRotation(5),
-            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
+            T.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.4, hue=0.1),
             T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True),
         ])
 
@@ -100,10 +100,11 @@ def train(args):
     model = AutocarModel().to(DEVICE)
     if args.resume:
         model.load_state_dict(torch.load(args.dir / "model.pt"))
+        print("Resumed model from", args.dir / "model.pt")
 
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
     writer = SummaryWriter(args.dir / "logs")
     step = 0
@@ -149,6 +150,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=Path, default="results", help="Dir with training results.")
     parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--resume", action="store_true", help="Resume from dir/model.pt")
     args = parser.parse_args()
 
