@@ -6,9 +6,15 @@ import time
 from pathlib import Path
 
 import cv2
-import numpy as np
 
 from camera import *
+
+
+def crop_resize(img):
+    diff = img.shape[1] - img.shape[0]
+    img = img[:, diff // 2 : -diff // 2]
+    img = cv2.resize(img, (256, 256))
+    return img
 
 
 def gen_data(args, interface):
@@ -25,26 +31,18 @@ def gen_data(args, interface):
     pipeline = create_pipeline(args.res)
     print("Setup Depthai pipeline.")
     with depthai.Device(pipeline) as device:
-        q_rgb = device.getOutputQueue("rgb")
-        q_depth = device.getOutputQueue("depth")
-        q_depth_conf = device.getOutputQueue("depth_conf")
+        wrapper = PipelineWrapper(device)
 
         while True:
-            img_rgb = read_latest(q_rgb).getCvFrame()
-            img_depth = read_latest(q_depth).getFrame()
-            img_depth = (img_depth / np.max(img_depth) * 255).astype(np.uint8)
-            img_depth_conf = read_latest(q_depth_conf).getFrame()
-
-            """
-            cv2.imshow("depth", img_depth)
-            cv2.imshow("depth_conf", img_depth_conf)
-            cv2.waitKey(1)
-            """
+            images = wrapper.get()
 
             if interface.rc_values[5] > 0.5:
-                cv2.imwrite(str(dir / f"{i}.rgb.jpg"), img_rgb)
-                cv2.imwrite(str(dir / f"{i}.depth.jpg"), img_depth)
-                cv2.imwrite(str(dir / f"{i}.depth_conf.jpg"), img_depth_conf)
+                rgb = images["rgb"]
+                depth = crop_resize(images["depth"])
+                depth_conf = crop_resize(images["depth_conf"])
+                cv2.imwrite(str(dir / f"{i}.rgb.jpg"), rgb)
+                cv2.imwrite(str(dir / f"{i}.depth.jpg"), depth)
+                cv2.imwrite(str(dir / f"{i}.depth_conf.jpg"), depth_conf)
 
                 label = interface.rc_values[0] * 2 - 1
                 with open(dir / f"{i}.txt", "w") as f:

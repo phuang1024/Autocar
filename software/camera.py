@@ -45,12 +45,31 @@ def create_pipeline(res):
     depth.confidenceMap.link(xout_depth_conf.input)
 
     """
-    xout_imu = pipeline.createXLinkOut#()
+    xout_imu = pipeline.createXLinkOut()
     xout_imu.setStreamName("imu")
     imu.out.link(xout_imu.input)
     """
 
     return pipeline
+
+
+class PipelineWrapper:
+    """
+    Handles creating and reading all queues.
+    """
+
+    def __init__(self, device):
+        self.device = device
+        self.queues = {}
+        for name in ["rgb", "depth", "depth_conf"]:
+            self.queues[name] = self.device.getOutputQueue(name)
+
+    def get(self):
+        return {
+            "rgb": read_latest(self.queues["rgb"]).getCvFrame(),
+            "depth": read_latest(self.queues["depth"]).getFrame(),
+            "depth_conf": read_latest(self.queues["depth_conf"]).getFrame(),
+        }
 
 
 def read_latest(queue):
@@ -59,4 +78,3 @@ def read_latest(queue):
         data = queue.get()
         time.sleep(0.01)
     return data
-

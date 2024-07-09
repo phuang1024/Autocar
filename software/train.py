@@ -14,8 +14,6 @@ if __name__ == "__main__":
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-_resize_256 = T.Resize(256, antialias=True)
-
 
 class Augmentation(torch.nn.Module):
     def __init__(self):
@@ -54,40 +52,21 @@ class ImageDataset(Dataset):
         color = color.float() / 255
 
         depth = torchvision.io.read_image(str(self.dir / f"{i}.depth.jpg"))
-        depth = depth.float() / 255
+        depth = depth.unsqueeze(0).float() / 255
 
         depth_conf = torchvision.io.read_image(str(self.dir / f"{i}.depth_conf.jpg"))
-        depth_conf = depth_conf.float() / 255
+        depth_conf = depth_conf.unsqueeze(0).float() / 255
 
-        x = preprocess_data(color, depth, depth_conf)
+        x = torch.cat([color, depth, depth_conf], dim=0)
         x = self.transform(x)
 
         return x, label
 
 
-def preprocess_data(color, depth, depth_conf):
-    """
-    Crops and resizes all to 256.
-    Converts color to grayscale.
-    Concats along the channel dimension.
-    """
-    def crop_resize(img):
-        diff = img.shape[2] - img.shape[1]
-        img = img[:, :, diff // 2 : -diff // 2]
-        img = _resize_256(img)
-        return img
-
-    gray = color.mean(dim=0, keepdim=True)
-    depth = crop_resize(depth)
-    depth_conf = crop_resize(depth_conf)
-
-    return torch.cat([gray, depth, depth_conf], dim=0)
-
-
 class AutocarModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.resnet = torchvision.models.resnet18()
+        self.resnet = torchvision.models.resnet50()
         self.resnet.fc = torch.nn.Linear(512, 1)
         self.tanh = torch.nn.Tanh()
 

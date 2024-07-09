@@ -3,7 +3,7 @@ import time
 import torch
 
 from camera import *
-from train import AutocarModel, DEVICE, preprocess_data
+from train import AutocarModel, DEVICE
 
 
 def auto_main(args, interface):
@@ -18,25 +18,21 @@ def auto_main(args, interface):
     interface.add_thread(interface.auto_rc)
 
     with depthai.Device(pipeline) as device:
-        q_rgb = device.getOutputQueue("rgb")
-        q_depth = device.getOutputQueue("depth")
-        q_depth_conf = device.getOutputQueue("depth_conf")
+        wrapper = PipelineWrapper(device)
 
         while True:
-            img_rgb = read_latest(q_rgb).getCvFrame()
-            img_depth = read_latest(q_depth).getFrame()
-            img_depth = (img_depth / np.max(img_depth) * 255).astype(np.uint8)
-            img_depth_conf = read_latest(q_depth_conf).getFrame()
+            images = wrapper.get()
 
             nn_enabled = interface.rc_values[5] > 0.5
 
             # Infer model
             if nn_enabled:
                 with torch.no_grad():
-                    color = torch.tensor(img_rgb).permute(2, 0, 1).unsqueeze(0).float() / 255
-                    depth = torch.tensor(img_depth).unsqueeze(0).float() / 255
-                    depth_conf = torch.tensor(img_depth_conf).unsqueeze(0).float() / 255
-                    x = preprocess_data(color, depth, depth_conf)
+                    color = torch.tensor(images["rgb"]).permute(2, 0, 1).float() / 255
+                    color = torch.mean(color, dim=0, keepdim=True)
+                    depth = torch.tensor(images["depth"]).unsqueeze(0).float() / 255
+                    depth_conf = torch.tensor(images["depth_conf"]).unsqueeze(0).float() / 255
+                    x = torch.stack([color, depth, depth_conf], dim=0).unsqueeze(0).to(DEVICE)
                     pred = model(x).item()
             else:
                 pred = 0
