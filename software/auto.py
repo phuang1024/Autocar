@@ -29,9 +29,9 @@ def auto_main(args, interface):
             if nn_enabled:
                 with torch.no_grad():
                     color = torch.tensor(images["rgb"]).permute(2, 0, 1).float() / 255
-                    color = torch.mean(color, dim=0, keepdim=True)
-                    depth = torch.tensor(images["depth"]).unsqueeze(0).float() / 255
-                    depth_conf = torch.tensor(images["depth_conf"]).unsqueeze(0).float() / 255
+                    color = torch.mean(color, dim=0)
+                    depth = torch.tensor(images["depth"]).float() / 255
+                    depth_conf = torch.tensor(images["depth_conf"]).float() / 255
                     x = torch.stack([color, depth, depth_conf], dim=0).unsqueeze(0).to(DEVICE)
                     pred = model(x).item()
             else:
