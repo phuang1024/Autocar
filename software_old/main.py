@@ -1,10 +1,9 @@
 import argparse
 import time
-from pathlib import Path
 
 from gen_data import gen_data
 from interface import Interface
-from auto import auto_main
+from model import train_main
 
 
 def main(interface: Interface):
@@ -12,7 +11,8 @@ def main(interface: Interface):
     Possible subcommands:
     rc: Begin standard RC control
     data: Generate data for training
-    auto: Auto driving with optional intervention
+    train: Begin reinforcement learning
+    server: Server side, concurrent with `train`
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--res", type=int, default=256)
@@ -24,8 +24,12 @@ def main(interface: Interface):
     data_p.add_argument("--interval", type=float, default=3)
     data_p.add_argument("--dir", type=str, required=True)
 
-    auto_p = subp.add_parser("auto")
-    auto_p.add_argument("--model-path", type=Path, required=True)
+    train_p = subp.add_parser("train")
+    train_p.add_argument("--ip", type=str, default="localhost")
+    train_p.add_argument("--port", type=int, default=7895)
+    train_p.add_argument("--infer-ival", type=float, default=0.1)
+    train_p.add_argument("--new-data-ival", type=float, default=1)
+    train_p.add_argument("--new-model-ival", type=float, default=90)
 
     args = parser.parse_args()
 
@@ -38,8 +42,8 @@ def main(interface: Interface):
     elif args.command == "data":
         gen_data(args, interface)
 
-    elif args.command == "auto":
-        auto_main(args, interface)
+    elif args.command == "train":
+        train_main(args, interface)
 
 
 if __name__ == "__main__":
