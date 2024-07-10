@@ -66,8 +66,7 @@ class ImageDataset(Dataset):
 
         with open(self.dir / f"{i}.txt", "r") as f:
             label = float(f.read())
-        label -= shear * 0.1
-        label = torch.tensor(label).float()
+        label = label - shear * 0.03
         label = torch.clamp(label, -1, 1)
 
         return x, label
@@ -136,8 +135,8 @@ def train(args):
     writer = SummaryWriter(args.dir / "logs")
     step = 0
 
-    preview_data(dataset)
-    stop
+    #preview_data(dataset)
+    #stop
     #histogram(model, dataset)
     #stop
 
@@ -147,7 +146,7 @@ def train(args):
         for x, y in (pbar := tqdm(train_loader)):
             x, y = x.to(DEVICE), y.to(DEVICE)
             optimizer.zero_grad()
-            pred = model(x).squeeze(1)
+            pred = model(x)
             loss = criterion(pred, y)
             loss.backward()
             total_loss += loss.item()
@@ -162,7 +161,7 @@ def train(args):
             total_loss = 0
             for x, y in (pbar := tqdm(val_loader)):
                 x, y = x.to(DEVICE), y.to(DEVICE)
-                pred = model(x).squeeze(1)
+                pred = model(x)
                 loss = criterion(pred, y)
                 total_loss += loss.item()
 
