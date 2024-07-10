@@ -18,21 +18,26 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class Augmentation(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.aug = torchvision.transforms.Compose([
+        self.basic = torchvision.transforms.Compose([
             T.RandomRotation(5),
             T.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.4, hue=0.1),
-            T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True),
+            T.RandomResizedCrop(256, scale=(0.5, 1.0), antialias=True),
         ])
 
-    def forward(self, x):
-        return self.aug(x)
+    def forward(self, x, shear):
+        # Apply shear
+        x = T.functional.affine(x, angle=0, translate=[0, 0], scale=1, shear=[shear, 0])
+
+        x = self.basic(x)
+
+        return x
 
 
 class ImageDataset(Dataset):
     def __init__(self, dir):
         self.dir = dir
         self.indices = []
-        self.transform = Augmentation()
+        self.aug = Augmentation()
 
         indices = set()
         for file in dir.glob("*.jpg"):
@@ -44,10 +49,6 @@ class ImageDataset(Dataset):
         return len(self.indices)
 
     def __getitem__(self, i):
-        with open(self.dir / f"{i}.txt", "r") as f:
-            label = float(f.read())
-            label = torch.tensor(label).float()
-
         color = torchvision.io.read_image(str(self.dir / f"{i}.rgb.jpg"))
         color = color.float() / 255
         color = torch.mean(color, dim=0, keepdim=True)
@@ -59,7 +60,15 @@ class ImageDataset(Dataset):
         depth_conf = depth_conf.float() / 255
 
         x = torch.cat([color, depth, depth_conf], dim=0)
-        x = self.transform(x)
+
+        shear = torch.randn(1) * 5
+        x = self.aug(x, shear)
+
+        with open(self.dir / f"{i}.txt", "r") as f:
+            label = float(f.read())
+        label -= shear * 0.1
+        label = torch.tensor(label).float()
+        label = torch.clamp(label, -1, 1)
 
         return x, label
 
@@ -127,8 +136,8 @@ def train(args):
     writer = SummaryWriter(args.dir / "logs")
     step = 0
 
-    #preview_data(dataset)
-    #stop
+    preview_data(dataset)
+    stop
     #histogram(model, dataset)
     #stop
 
