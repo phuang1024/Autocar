@@ -65,7 +65,7 @@ class ImageDataset(Dataset):
         left = max(rotate, 0)
         width = 256 - abs(rotate)
         x = T.functional.crop(x, top=abs(rotate), left=left, height=width, width=width)
-        x = T.functional.resize(x, 256)
+        x = T.functional.resize(x, 256, antialias=True)
 
         x = self.aug(x)
 
@@ -152,7 +152,7 @@ def train(args):
         for x, y in (pbar := tqdm(train_loader)):
             x, y = x.to(DEVICE), y.to(DEVICE)
             optimizer.zero_grad()
-            pred = model(x)
+            pred = model(x).squeeze(1)
             loss = criterion(pred, y)
             loss.backward()
             total_loss += loss.item()
@@ -167,7 +167,7 @@ def train(args):
             total_loss = 0
             for x, y in (pbar := tqdm(val_loader)):
                 x, y = x.to(DEVICE), y.to(DEVICE)
-                pred = model(x)
+                pred = model(x).squeeze(1)
                 loss = criterion(pred, y)
                 total_loss += loss.item()
 
