@@ -18,22 +18,20 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class Augmentation(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.basic = torchvision.transforms.Compose([
+        self.aug = torchvision.transforms.Compose([
             T.RandomRotation(5),
-            T.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.4, hue=0.1),
-            T.RandomResizedCrop(256, scale=(0.5, 1.0), antialias=True),
+            #T.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.4, hue=0.1),
+            T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True),
         ])
 
-    def forward(self, x, shear):
-        # Apply shear
-        x = T.functional.affine(x, angle=0, translate=[0, 0], scale=1, shear=[shear, 0])
-
-        x = self.basic(x)
-
+    def forward(self, x):
+        x = self.aug(x)
         return x
 
 
 class ImageDataset(Dataset):
+    rotate_std = 50
+
     def __init__(self, dir):
         self.dir = dir
         self.indices = []
@@ -49,6 +47,7 @@ class ImageDataset(Dataset):
         return len(self.indices)
 
     def __getitem__(self, i):
+        # Read images
         color = torchvision.io.read_image(str(self.dir / f"{i}.rgb.jpg"))
         color = color.float() / 255
         color = torch.mean(color, dim=0, keepdim=True)
@@ -61,13 +60,20 @@ class ImageDataset(Dataset):
 
         x = torch.cat([color, depth, depth_conf], dim=0)
 
-        shear = torch.randn(1) * 5
-        x = self.aug(x, shear)
+        # Apply augmentation
+        rotate = int(torch.randn(1).item() * self.rotate_std)
+        left = max(rotate, 0)
+        width = 256 - abs(rotate)
+        x = T.functional.crop(x, top=abs(rotate), left=left, height=width, width=width)
+        x = T.functional.resize(x, 256)
 
+        x = self.aug(x)
+
+        # Read label
         with open(self.dir / f"{i}.txt", "r") as f:
             label = float(f.read())
-        label = label - shear * 0.03
-        label = torch.clamp(label, -1, 1)
+        label = label - rotate / self.rotate_std / 3
+        label = torch.clamp(torch.tensor(label).float(), -1, 1)
 
         return x, label
 
