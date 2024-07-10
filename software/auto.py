@@ -34,6 +34,7 @@ def auto_main(args, interface):
                     depth_conf = torch.tensor(images["depth_conf"]).float() / 255
                     x = torch.stack([color, depth, depth_conf], dim=0).unsqueeze(0).to(DEVICE)
                     pred = model(x).item()
+                    print("Pred", pred)
             else:
                 pred = 0
             interface.nn_pred = pred

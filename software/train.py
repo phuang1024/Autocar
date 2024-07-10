@@ -82,8 +82,8 @@ class ImageDataset(Dataset):
 class AutocarModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.resnet = torchvision.models.resnet50()
-        self.resnet.fc = torch.nn.Linear(2048, 1)
+        self.resnet = torchvision.models.resnet18()
+        self.resnet.fc = torch.nn.Linear(512, 1)
         self.tanh = torch.nn.Tanh()
 
     def forward(self, x):
