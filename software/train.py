@@ -62,6 +62,7 @@ class ImageDataset(Dataset):
 
         # Apply augmentation
         rotate = int(torch.randn(1).item() * self.rotate_std)
+        rotate = min(rotate, 150)
         left = max(rotate, 0)
         width = 256 - abs(rotate)
         x = T.functional.crop(x, top=abs(rotate), left=left, height=width, width=width)
@@ -82,7 +83,7 @@ class AutocarModel(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.resnet = torchvision.models.resnet50()
-        self.resnet.fc = torch.nn.Linear(512, 1)
+        self.resnet.fc = torch.nn.Linear(2048, 1)
         self.tanh = torch.nn.Tanh()
 
     def forward(self, x):
@@ -136,7 +137,7 @@ def train(args):
 
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.94)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.97)
 
     writer = SummaryWriter(args.dir / "logs")
     step = 0
@@ -182,7 +183,7 @@ def train(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", type=Path, default="results", help="Dir with training results.")
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--resume", action="store_true", help="Resume from dir/model.pt")
     args = parser.parse_args()
