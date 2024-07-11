@@ -11,20 +11,20 @@ def create_pipeline(res):
     cam_rgb.setPreviewSize(res, res)
     cam_rgb.setInterleaved(False)
 
-    depth_left = pipeline.createMonoCamera()
-    depth_left.setCamera("left")
-    depth_left.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
+    st_left = pipeline.createMonoCamera()
+    st_left.setCamera("left")
+    st_left.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
 
-    depth_right = pipeline.createMonoCamera()
-    depth_right.setCamera("right")
-    depth_right.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
+    st_right = pipeline.createMonoCamera()
+    st_right.setCamera("right")
+    st_right.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
 
     depth = pipeline.createStereoDepth()
     depth.setLeftRightCheck(True)
     depth.setExtendedDisparity(False)
     depth.setSubpixel(False)
-    depth_left.out.link(depth.left)
-    depth_right.out.link(depth.right)
+    st_left.out.link(depth.left)
+    st_right.out.link(depth.right)
 
     """
     imu = pipeline.createIMU()
@@ -37,9 +37,13 @@ def create_pipeline(res):
     xout_rgb.setStreamName("rgb")
     cam_rgb.preview.link(xout_rgb.input)
 
-    xout_depth = pipeline.createXLinkOut()
-    xout_depth.setStreamName("depth")
-    depth.disparity.link(xout_depth.input)
+    xout_depth_fac = pipeline.createXLinkOut()
+    xout_depth_fac.setStreamName("depth_fac")
+    depth.disparity.link(xout_depth_fac.input)
+
+    xout_depth_dist = pipeline.createXLinkOut()
+    xout_depth_dist.setStreamName("depth_dist")
+    depth.depth.link(xout_depth_dist.input)
 
     xout_depth_conf = pipeline.createXLinkOut()
     xout_depth_conf.setStreamName("depth_conf")
@@ -61,28 +65,32 @@ class PipelineWrapper:
 
     def __init__(self, device):
         self.device = device
+        self.names = ["rgb", "depth_fac", "depth_dist", "depth_conf"]
         self.queues = {}
-        for name in ["rgb", "depth", "depth_conf"]:
-            self.queues[name] = self.device.getOutputQueue(name)
+        for name in self.names:
+            queue = self.device.getOutputQueue(name)
+            queue.setMaxSize(1)
+            queue.setBlocking(False)
+            self.queues[name] = queue
 
     def get(self):
-        return {
-            "rgb": read_latest(self.queues["rgb"]).getCvFrame(),
-            "depth": crop_resize(read_latest(self.queues["depth"]).getFrame()),
-            "depth_conf": crop_resize(read_latest(self.queues["depth_conf"]).getFrame()),
-        }
+        ret = {}
+        for name in self.names:
+            frame = self.queues[name].get()
+            if name == "rgb":
+                frame = frame.getCvFrame()
+            else:
+                frame = crop_resize(frame.getFrame())
+            ret[name] = frame
+
+        return ret
 
 
 def crop_resize(img):
+    """
+    img: HWC
+    """
     diff = img.shape[1] - img.shape[0]
-    img = img[diff // 2 : -diff // 2]
+    img = img[:, diff // 2 : -diff // 2]
     img = cv2.resize(img, (256, 256))
     return img
-
-
-def read_latest(queue):
-    data = None
-    while queue.has() or data is None:
-        data = queue.get()
-        time.sleep(0.01)
-    return data

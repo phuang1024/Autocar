@@ -2,7 +2,7 @@ import argparse
 import time
 from pathlib import Path
 
-from gen_data import gen_data
+from gen_data import gen_data_main
 from interface import Interface
 from auto import auto_main
 
@@ -21,6 +21,7 @@ def main(interface: Interface):
     rc_p = subp.add_parser("rc")
 
     data_p = subp.add_parser("data")
+    data_p.add_argument("--self-rc", action="store_true", help="Drive auto avoiding obstacles while getting data.")
     data_p.add_argument("--interval", type=float, default=0)
     data_p.add_argument("--dir", type=str, required=True)
 
@@ -36,7 +37,7 @@ def main(interface: Interface):
             time.sleep(0.1)
 
     elif args.command == "data":
-        gen_data(args, interface)
+        gen_data_main(args, interface)
 
     elif args.command == "auto":
         auto_main(args, interface)
