@@ -65,7 +65,7 @@ def self_rc(args, interface, wrapper, data_gen):
         left_fac = np.mean(depth_x[: args.res // 2])
         right_fac = np.mean(depth_x[args.res // 2 :])
 
-        if left_fac > 0.7 and right_fac > 0.7:
+        if left_fac > 0.9 and right_fac > 0.9:
             # Back out
             interface.v1 = -1
             interface.v2 = -1
@@ -76,12 +76,12 @@ def self_rc(args, interface, wrapper, data_gen):
                 interface.v2 = 0
             time.sleep(0.7)
 
-        elif left_fac > 0.4 or right_fac > 0.4:
-            steer = (left_fac - right_fac) * 5
+        elif left_fac > 0.5 or right_fac > 0.5:
+            steer = (left_fac - right_fac) * 3
             steer = min(1, abs(steer))
             interface.v1 = 1
             interface.v2 = 1
-            if left_fac > right_fac:
+            if left_fac < right_fac:
                 interface.v1 = 1 - steer
             else:
                 interface.v2 = 1 - steer
