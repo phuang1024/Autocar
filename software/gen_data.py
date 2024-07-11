@@ -80,8 +80,9 @@ def self_rc(args, interface, wrapper, data_gen):
 
         if left_fac > 0.8 and right_fac > 0.8:
             # Back out
-            interface.v1 = -1
-            interface.v2 = -1
+            interface.v1 = interface.v2 = 0
+            time.sleep(0.5)
+            interface.v1 = interface.v2 = -1
             time.sleep(0.5)
             if left_fac > right_fac:
                 interface.v1 = 0
