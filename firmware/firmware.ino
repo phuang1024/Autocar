@@ -132,12 +132,15 @@ struct BattV {
 
 
 struct SerialQuery {
+    bool active;
     bool ena;
     int v1, v2;
 
     // Read from Serial and initialize.
     void read() {
         if (Serial.available() > 0) {
+            active = true;
+
             int ena_value = Serial.parseInt();
             ena = ena_value > 0;
 
@@ -146,6 +149,7 @@ struct SerialQuery {
                 v2 = Serial.parseInt();
             }
         } else {
+            active = false;
             ena = false;
         }
     }
@@ -196,7 +200,11 @@ void setup() {
         motors.write_vel_left(query.v1);
         motors.write_vel_right(query.v2);
 
-        delay(10);
+        if (query.active) {
+            delay(10);
+        } else {
+            delay(500);
+        }
     }
 }
 
