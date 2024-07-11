@@ -49,9 +49,13 @@ def self_rc(args, interface, wrapper, data_gen):
         value = 1 - abs(y - args.res / 2) / (args.res / 2)
         mask[y] = value
 
-    interface.ena = True
+    # EMA smoothed depth.
+    ema_fac = 0.3
+    depth_ema = np.zeros((args.res,), dtype=np.float32)
 
     while True:
+        interface.ena = interface.rc_values[0] > 0.5
+
         images = wrapper.get()
 
         # Process depth to obtain depth over X.
@@ -60,12 +64,21 @@ def self_rc(args, interface, wrapper, data_gen):
         depth = depth * mask
         depth_x = np.max(depth, axis=0)
         depth_x = np.clip(depth_x / 60, 0, 1)
+        depth_ema = depth_ema * (1 - ema_fac) + depth_x * ema_fac
+
+        """
+        img = np.zeros((args.res, args.res), dtype=np.uint8)
+        for i in range(args.res):
+            img[i] = depth_ema * 255
+        cv2.imshow("depth", img)
+        cv2.waitKey(1)
+        """
 
         # Figure out resulting action.
-        left_fac = np.mean(depth_x[: args.res // 2])
-        right_fac = np.mean(depth_x[args.res // 2 :])
+        left_fac = np.max(depth_ema[: args.res // 2])
+        right_fac = np.max(depth_ema[args.res // 2 :])
 
-        if left_fac > 0.9 and right_fac > 0.9:
+        if left_fac > 0.8 and right_fac > 0.8:
             # Back out
             interface.v1 = -1
             interface.v2 = -1
@@ -76,7 +89,7 @@ def self_rc(args, interface, wrapper, data_gen):
                 interface.v2 = 0
             time.sleep(0.7)
 
-        elif left_fac > 0.5 or right_fac > 0.5:
+        elif left_fac > 0.3 or right_fac > 0.3:
             steer = (left_fac - right_fac) * 3
             steer = min(1, abs(steer))
             interface.v1 = 1
@@ -90,7 +103,7 @@ def self_rc(args, interface, wrapper, data_gen):
             interface.v1 = 1
             interface.v2 = 1
 
-        time.sleep(0.1)
+        time.sleep(0.01)
 
 
 def gen_data_main(args, interface):
