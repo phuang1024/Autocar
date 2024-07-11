@@ -89,6 +89,8 @@ def self_rc(args, interface, wrapper, data_gen):
             else:
                 interface.v2 = 0
             time.sleep(0.7)
+            interface.v1 = interface.v2 = 0
+            time.sleep(0.5)
 
         elif left_fac > 0.3 or right_fac > 0.3:
             steer = (left_fac - right_fac) * 3
