@@ -54,7 +54,7 @@ def self_rc(args, interface, wrapper, data_gen):
     depth_ema = np.zeros((args.res,), dtype=np.float32)
 
     while True:
-        interface.ena = interface.rc_values[0] > 0.5
+        interface.ena = interface.rc_values[4] > 0.5
 
         images = wrapper.get()
 
