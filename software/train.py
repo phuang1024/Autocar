@@ -1,4 +1,5 @@
 import argparse
+import random
 from pathlib import Path
 
 from tqdm import tqdm
@@ -31,6 +32,7 @@ class Augmentation(torch.nn.Module):
 
 class ImageDataset(Dataset):
     rotate_std = 50
+    shear_std = 10
 
     def __init__(self, dir):
         self.dir = dir
@@ -60,34 +62,51 @@ class ImageDataset(Dataset):
 
         x = torch.cat([color, depth, depth_conf], dim=0)
 
-        # Apply augmentation
-        rotate = int(torch.randn(1).item() * self.rotate_std)
-        rotate = min(rotate, 150)
-        left = max(rotate, 0)
-        width = 256 - abs(rotate)
-        x = T.functional.crop(x, top=abs(rotate), left=left, height=width, width=width)
-        x = T.functional.resize(x, 256, antialias=True)
-
-        x = self.aug(x)
-
         # Read label
         with open(self.dir / f"{i}.txt", "r") as f:
             label = float(f.read())
-        label = label - rotate / self.rotate_std / 3
+
+        if random.random() < 0.3:
+            # Apply fake 3D rotation and corresponding label change.
+            rotate = int(torch.randn(1).item() * self.rotate_std)
+            rotate = min(rotate, 150)
+            left = max(rotate, 0)
+            width = 256 - abs(rotate)
+            x = T.functional.crop(x, top=abs(rotate), left=left, height=width, width=width)
+            x = T.functional.resize(x, 256, antialias=True)
+
+            label = label - rotate / self.rotate_std / 3
+
+        """
+        elif random.random() < 0.3:
+            # Apply fake 3D translation via shear.
+            shear = int(torch.randn(1).item() * self.shear_std)
+            shear = min(shear, 60)
+            x = T.functional.affine(x, angle=0, translate=(0, 0), scale=1.1, shear=shear)
+            x = T.functional.resize(x, 256, antialias=True)
+
+            label = label - shear / self.shear_std / 3
+        """
+
+        # Apply augmentation
+        x = self.aug(x)
+
         label = torch.clamp(torch.tensor(label).float(), -1, 1)
 
         return x, label
 
 
 class AutocarModel(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, temperature=0.1):
         super().__init__()
         self.resnet = torchvision.models.resnet18()
         self.resnet.fc = torch.nn.Linear(512, 1)
         self.tanh = torch.nn.Tanh()
+        self.temperature = temperature
 
     def forward(self, x):
         x = self.resnet(x)
+        x = x * self.temperature
         x = self.tanh(x)
         return x
 
@@ -103,7 +122,7 @@ def preview_data(dataset):
 
 
 def histogram(model, dataset):
-    loader = DataLoader(dataset, batch_size=32, num_workers=4, pin_memory=True)
+    loader = DataLoader(dataset, batch_size=16, num_workers=4, pin_memory=True)
 
     model.eval()
     with torch.no_grad():
@@ -118,11 +137,11 @@ def histogram(model, dataset):
 
 def train(args):
     dataset = ImageDataset(args.dir)
-    train_len = int(len(dataset) * 0.8)
+    train_len = int(len(dataset) * 0.9)
     val_len = len(dataset) - train_len
     train_set, val_set = random_split(dataset, [train_len, val_len])
     loader_args = {
-        "batch_size": 32,
+        "batch_size": 16,
         "num_workers": 4,
         "pin_memory": True,
         "shuffle": True,
@@ -137,7 +156,9 @@ def train(args):
 
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.97)
+    gamma = 1e-2 ** (1 / args.epochs)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
+    print("LR:", args.lr, "Gamma:", gamma)
 
     writer = SummaryWriter(args.dir / "logs")
     step = 0
