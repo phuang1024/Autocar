@@ -21,7 +21,7 @@ class DataGen:
 
     def write(self, images, label):
         cv2.imwrite(str(self.dir / f"{self.i}.rgb.jpg"), images["rgb"])
-        cv2.imwrite(str(self.dir / f"{self.i}.depth.jpg"), images["depth"])
+        cv2.imwrite(str(self.dir / f"{self.i}.depth.jpg"), images["depth_fac"])
         cv2.imwrite(str(self.dir / f"{self.i}.depth_conf.jpg"), images["depth_conf"])
 
         with open(self.dir / f"{self.i}.txt", "w") as f:
