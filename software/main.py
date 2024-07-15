@@ -22,7 +22,7 @@ def main(interface: Interface):
 
     data_p = subp.add_parser("data")
     data_p.add_argument("--self-rc", action="store_true", help="Drive auto avoiding obstacles while getting data.")
-    data_p.add_argument("--interval", type=float, default=0)
+    data_p.add_argument("--interval", type=float, default=0.1)
     data_p.add_argument("--dir", type=str, required=True)
 
     auto_p = subp.add_parser("auto")

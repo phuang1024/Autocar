@@ -28,11 +28,9 @@ def auto_main(args, interface):
             # Infer model
             if nn_enabled:
                 with torch.no_grad():
-                    color = torch.tensor(images["rgb"]).permute(2, 0, 1).float() / 255
-                    color = torch.mean(color, dim=0)
-                    depth = torch.tensor(images["depth"]).float() / 255
-                    depth_conf = torch.tensor(images["depth_conf"]).float() / 255
-                    x = torch.stack([color, depth, depth_conf], dim=0).unsqueeze(0).to(DEVICE)
+                    x = images_to_tensor(images)
+                    x = x.float() / 255
+                    x = x.unsqueeze(0).to(DEVICE)
                     pred = model(x).item()
                     print("Pred", pred)
             else:

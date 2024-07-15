@@ -20,9 +20,8 @@ class DataGen:
                 self.i = max(self.i, int(file.stem) + 1)
 
     def write(self, images, label):
-        cv2.imwrite(str(self.dir / f"{self.i}.rgb.jpg"), images["rgb"])
-        cv2.imwrite(str(self.dir / f"{self.i}.depth.jpg"), images["depth_fac"])
-        cv2.imwrite(str(self.dir / f"{self.i}.depth_conf.jpg"), images["depth_conf"])
+        x = images_to_tensor(images)
+        torch.save(x, self.dir / f"{self.i}.pt")
 
         with open(self.dir / f"{self.i}.txt", "w") as f:
             f.write(f"{label}\n")
@@ -39,7 +38,7 @@ def manual_rc(args, interface, wrapper, data_gen):
             label = interface.rc_values[0] * 2 - 1
             data_gen.write(images, label)
 
-        time.sleep(0.01)
+        time.sleep(args.interval)
 
 
 def self_rc(args, interface, wrapper, data_gen):

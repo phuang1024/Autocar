@@ -1,7 +1,6 @@
-import time
-
 import cv2
 import depthai
+import torch
 
 
 def create_pipeline(res):
@@ -94,3 +93,17 @@ def crop_resize(img):
     img = img[:, diff // 2 : -diff // 2]
     img = cv2.resize(img, (256, 256))
     return img
+
+
+def images_to_tensor(images):
+    """
+    Process return of PipelineWrapper.get() into tensor input for model.
+
+    Return:
+        (4, 256, 256), CHW
+        uint8, 0 to 255
+    """
+    x = torch.empty((4, 256, 256), dtype=torch.uint8)
+    x[0:3] = torch.tensor(images["rgb"]).permute(2, 0, 1)
+    x[3] = torch.tensor(images["depth_fac"])
+    return x

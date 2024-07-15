@@ -34,15 +34,15 @@ class ImageDataset(Dataset):
     rotate_std = 50
     shear_std = 10
 
-    def __init__(self, dir):
+    def __init__(self, dir: Path):
         self.dir = dir
         self.indices = []
         self.aug = Augmentation()
 
         indices = set()
-        for file in dir.glob("*.jpg"):
-            if (ind := file.name.split(".")[0]).isdigit():
-                indices.add(int(ind))
+        for file in dir.glob("*.pt"):
+            if file.stem.isdigit():
+                indices.add(int(file.stem))
         self.indices = sorted(indices)
 
     def __len__(self):
@@ -50,17 +50,8 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, i):
         # Read images
-        color = torchvision.io.read_image(str(self.dir / f"{i}.rgb.jpg"))
-        color = color.float() / 255
-        color = torch.mean(color, dim=0, keepdim=True)
-
-        depth = torchvision.io.read_image(str(self.dir / f"{i}.depth.jpg"))
-        depth = depth.float() / 255
-
-        depth_conf = torchvision.io.read_image(str(self.dir / f"{i}.depth_conf.jpg"))
-        depth_conf = depth_conf.float() / 255
-
-        x = torch.cat([color, depth, depth_conf], dim=0)
+        x = torch.load(self.dir / f"{i}.pt")
+        x = x.float() / 255
 
         # Read label
         with open(self.dir / f"{i}.txt", "r") as f:
@@ -88,7 +79,7 @@ class ImageDataset(Dataset):
             label = label - shear / self.shear_std / 3
         """
 
-        # Apply augmentation
+        # Apply other augmentation
         x = self.aug(x)
 
         label = torch.clamp(torch.tensor(label).float(), -1, 1)
@@ -99,8 +90,11 @@ class ImageDataset(Dataset):
 class AutocarModel(torch.nn.Module):
     def __init__(self, temperature=0.1):
         super().__init__()
+
         self.resnet = torchvision.models.resnet18()
+        self.resnet.conv1 = torch.nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.resnet.fc = torch.nn.Linear(512, 1)
+
         self.tanh = torch.nn.Tanh()
         self.temperature = temperature
 
