@@ -16,6 +16,10 @@ if __name__ == "__main__":
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+RNN_LENGTH = 4
+RNN_DECAY = 0.5
+TRAIN_RNN_STRIDE = 8
+
 
 class Augmentation(torch.nn.Module):
     def __init__(self):
@@ -57,7 +61,36 @@ class ImageDataset(Dataset):
     def __len__(self):
         return len(self.indices)
 
-    def __getitem__(self, i):
+    def __getitem__(self, index):
+        xs = [None]
+        decay = 1
+        for i in range(1, RNN_LENGTH):
+            curr_i = index - i * TRAIN_RNN_STRIDE
+            if curr_i not in self.indices:
+                x, _ = self.read(self.indices[0])
+                x = torch.zeros_like(x)
+            else:
+                x, _ = self.read(curr_i)
+            decay *= RNN_DECAY
+            x *= decay
+            xs.append(x)
+
+        # Apply simulated augmentation
+        x, label = self.read(index)
+        x, label = self.apply_simulated_aug(x, label)
+        xs[0] = x
+
+        # Stack images
+        x = torch.cat(xs, dim=0)
+
+        # Apply other augmentation
+        x = self.aug(x)
+
+        label = torch.clamp(torch.tensor(label).float(), -1, 1)
+
+        return x, label
+
+    def read(self, i):
         # Read images
         x = torch.load(self.dir / f"{i}.pt")
         x = x.float() / 255
@@ -66,6 +99,9 @@ class ImageDataset(Dataset):
         with open(self.dir / f"{i}.txt", "r") as f:
             label = float(f.read())
 
+        return x, label
+
+    def apply_simulated_aug(self, x, label):
         # Simulated 3D transform augmentations
         if random.random() < 0.3:
             # Rotation augmentation
@@ -102,11 +138,6 @@ class ImageDataset(Dataset):
 
         x = T.functional.resize(x, 256, antialias=True)
 
-        # Apply other augmentation
-        x = self.aug(x)
-
-        label = torch.clamp(torch.tensor(label).float(), -1, 1)
-
         return x, label
 
 
@@ -115,7 +146,7 @@ class AutocarModel(torch.nn.Module):
         super().__init__()
 
         self.resnet = torchvision.models.resnet18()
-        self.resnet.conv1 = torch.nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.resnet.conv1 = torch.nn.Conv2d(4 * RNN_LENGTH, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.resnet.fc = torch.nn.Linear(512, 1)
 
         self.tanh = torch.nn.Tanh()
@@ -133,13 +164,21 @@ def preview_data(dataset):
     loader = DataLoader(dataset, batch_size=16, shuffle=True)
     x, y = next(iter(loader))
 
-    grid = torchvision.utils.make_grid(x[:, 0:3, ...], nrow=4)
-    plt.imshow(grid.permute(1, 2, 0))
-    plt.show()
+    print("X shape:", x.shape)
 
-    grid = torchvision.utils.make_grid(x[:, 3:4, ...], nrow=4)
-    plt.imshow(grid.permute(1, 2, 0))
-    plt.show()
+    i = 0
+    while i < x.size(1):
+        grid = torchvision.utils.make_grid(x[:, i:i+3, ...], nrow=4)
+        plt.imshow(grid.permute(1, 2, 0))
+        plt.show()
+
+        """
+        grid = torchvision.utils.make_grid(x[:, i+3:i+4, ...], nrow=4)
+        plt.imshow(grid.permute(1, 2, 0))
+        plt.show()
+        """
+
+        i += 4
 
 
 def histogram(model, dataset):
@@ -163,7 +202,7 @@ def train(args):
     train_set, val_set = random_split(dataset, [train_len, val_len])
     loader_args = {
         "batch_size": 16,
-        "num_workers": 4,
+        "num_workers": 16,
         "pin_memory": True,
         "shuffle": True,
     }
@@ -185,9 +224,9 @@ def train(args):
     step = 0
 
     #preview_data(dataset)
-    #stop
+    #raise ValueError("stop")
     #histogram(model, dataset)
-    #stop
+    #raise ValueError("stop")
 
     for epoch in range(args.epochs):
         model.train()
