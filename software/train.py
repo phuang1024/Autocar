@@ -2,6 +2,7 @@ import argparse
 import random
 from pathlib import Path
 
+import numpy as np
 from tqdm import tqdm
 
 import torch
@@ -31,6 +32,14 @@ class Augmentation(torch.nn.Module):
 
 
 class ImageDataset(Dataset):
+    """
+    Dataset.
+
+    Simulated 3D transform augmentations:
+    - Rotation: Simulate 3D Z rotation via horizontal crop.
+    - X translation: Simulate 3D horizontal translation via shear.
+    - Z translation: Simulate 3D front/back translation via zoom in and depth adjust.
+    """
     rotate_std = 50
     shear_std = 10
 
@@ -57,27 +66,41 @@ class ImageDataset(Dataset):
         with open(self.dir / f"{i}.txt", "r") as f:
             label = float(f.read())
 
+        # Simulated 3D transform augmentations
         if random.random() < 0.3:
-            # Apply fake 3D rotation and corresponding label change.
+            # Rotation augmentation
             rotate = int(torch.randn(1).item() * self.rotate_std)
             rotate = min(rotate, 150)
             left = max(rotate, 0)
             width = 256 - abs(rotate)
             x = T.functional.crop(x, top=abs(rotate), left=left, height=width, width=width)
-            x = T.functional.resize(x, 256, antialias=True)
 
             label = label - rotate / self.rotate_std / 3
 
+        elif random.random() < 0.3:
+            # Z translation augmentation
+            zoom = random.uniform(0, 1)
+            zoom_px = int(zoom * 50)
+            x = x[:, zoom_px:256-zoom_px, zoom_px:256-zoom_px]
+
+            fac = np.interp(zoom, [0, 1], [1, 2])
+
+            # Adjust depth channel.
+            x[3] = torch.clamp(x[3] * fac, 0, 1)
+
+            label = label * fac
+
         """
         elif random.random() < 0.3:
-            # Apply fake 3D translation via shear.
+            # X translation augmentation
             shear = int(torch.randn(1).item() * self.shear_std)
             shear = min(shear, 60)
             x = T.functional.affine(x, angle=0, translate=(0, 0), scale=1.1, shear=shear)
-            x = T.functional.resize(x, 256, antialias=True)
 
             label = label - shear / self.shear_std / 3
         """
+
+        x = T.functional.resize(x, 256, antialias=True)
 
         # Apply other augmentation
         x = self.aug(x)
@@ -109,10 +132,14 @@ def preview_data(dataset):
     # Make grid with torchvision
     loader = DataLoader(dataset, batch_size=16, shuffle=True)
     x, y = next(iter(loader))
-    for i in range(3):
-        grid = torchvision.utils.make_grid(x[:, i:i+1, ...], nrow=4)
-        plt.imshow(grid.permute(1, 2, 0))
-        plt.show()
+
+    grid = torchvision.utils.make_grid(x[:, 0:3, ...], nrow=4)
+    plt.imshow(grid.permute(1, 2, 0))
+    plt.show()
+
+    grid = torchvision.utils.make_grid(x[:, 3:4, ...], nrow=4)
+    plt.imshow(grid.permute(1, 2, 0))
+    plt.show()
 
 
 def histogram(model, dataset):
@@ -130,7 +157,7 @@ def histogram(model, dataset):
 
 
 def train(args):
-    dataset = ImageDataset(args.dir)
+    dataset = ImageDataset(args.data)
     train_len = int(len(dataset) * 0.9)
     val_len = len(dataset) - train_len
     train_set, val_set = random_split(dataset, [train_len, val_len])
@@ -144,9 +171,9 @@ def train(args):
     val_loader = DataLoader(val_set, **loader_args)
 
     model = AutocarModel().to(DEVICE)
-    if args.resume:
-        model.load_state_dict(torch.load(args.dir / "model.pt"))
-        print("Resumed model from", args.dir / "model.pt")
+    if args.resume is not None:
+        model.load_state_dict(torch.load(args.resume))
+        print("Resumed model from", args.resume)
 
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -154,7 +181,7 @@ def train(args):
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
     print("LR:", args.lr, "Gamma:", gamma)
 
-    writer = SummaryWriter(args.dir / "logs")
+    writer = SummaryWriter(args.results / "logs")
     step = 0
 
     #preview_data(dataset)
@@ -191,19 +218,20 @@ def train(args):
             writer.add_scalar("val_loss", total_loss / len(val_loader), epoch)
             writer.add_scalar("lr", optimizer.param_groups[0]["lr"], epoch)
 
-        torch.save(model.state_dict(), args.dir / "model.pt")
+        torch.save(model.state_dict(), args.results / "model.pt")
         scheduler.step()
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dir", type=Path, default="results", help="Dir with training results.")
+    parser.add_argument("--data", type=Path, help="Data directory.")
+    parser.add_argument("--results", type=Path, help="Results directory.")
     parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--resume", action="store_true", help="Resume from dir/model.pt")
+    parser.add_argument("--resume", help="Resume from given model path.")
     args = parser.parse_args()
 
-    args.dir.mkdir(parents=True, exist_ok=True)
+    args.results.mkdir(parents=True, exist_ok=True)
 
     train(args)
 
