@@ -31,7 +31,7 @@ def auto_main(args, interface):
                     x = images_to_tensor(images)
                     x = x.float() / 255
                     x = x.unsqueeze(0).to(DEVICE)
-                    pred = model(x).item()
+                    pred, _ = model(x).item()
                     print("Pred", pred)
             else:
                 pred = 0
