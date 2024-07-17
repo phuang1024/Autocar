@@ -2,6 +2,8 @@ import cv2
 import depthai
 import torch
 
+FPS = 5
+
 
 def create_pipeline(res, nn_path=None):
     """
@@ -11,13 +13,16 @@ def create_pipeline(res, nn_path=None):
 
     cam_rgb = pipeline.createColorCamera()
     cam_rgb.setPreviewSize(res, res)
+    cam_rgb.setFps(FPS)
     cam_rgb.setInterleaved(False)
 
     st_left = pipeline.createMonoCamera()
+    st_left.setFps(FPS)
     st_left.setCamera("left")
     st_left.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
 
     st_right = pipeline.createMonoCamera()
+    st_right.setFps(FPS)
     st_right.setCamera("right")
     st_right.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
 
