@@ -32,8 +32,7 @@ python main.py auto --model-path model.pt
 Inference on DepthAI OAK-D.
 
 ```bash
-python export.py model.pt model.onnx
-./blobconv.sh model.onnx output_dir/
+./blobconv.sh model.pt output_dir/
 
 python main.py auto --model-path output_dir/model.blob
 ```

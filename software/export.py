@@ -6,7 +6,7 @@ import argparse
 
 import torch
 
-from train import OnnxAutocarModel
+from train import OnnxAutocarModel, DEVICE
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     args = parser.parse_args()
 
     model = OnnxAutocarModel()
-    model.load_state_dict(torch.load(args.model))
+    model.load_state_dict(torch.load(args.model, map_location=DEVICE))
     model.eval()
 
     rgb_shape = torch.empty(1, 3, 256, 256)
