@@ -1,0 +1,11 @@
+blobconverter
+depthai
+matplotlib
+numpy
+onnx
+opencv-python
+pyserial
+tensorboard
+torch
+torchvision
+tqdm

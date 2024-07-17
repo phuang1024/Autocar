@@ -3,7 +3,10 @@ import depthai
 import torch
 
 
-def create_pipeline(res):
+def create_pipeline(res, nn_path=None):
+    """
+    nn_path: None means no nn.
+    """
     pipeline = depthai.Pipeline()
 
     cam_rgb = pipeline.createColorCamera()
@@ -24,6 +27,12 @@ def create_pipeline(res):
     depth.setSubpixel(False)
     st_left.out.link(depth.left)
     st_right.out.link(depth.right)
+
+    if nn_path is not None:
+        nn = pipeline.createNeuralNetwork()
+        nn.setBlobPath(nn_path)
+        cam_rgb.preview.link(nn.inputs["rgb"])
+        depth.disparity.link(nn.inputs["depth"])
 
     """
     imu = pipeline.createIMU()
@@ -48,6 +57,11 @@ def create_pipeline(res):
     xout_depth_conf.setStreamName("depth_conf")
     depth.confidenceMap.link(xout_depth_conf.input)
 
+    if nn_path is not None:
+        xout_nn = pipeline.createXLinkOut()
+        xout_nn.setStreamName("nn")
+        nn.out.link(xout_nn.input)
+
     """
     xout_imu = pipeline.createXLinkOut()
     xout_imu.setStreamName("imu")
@@ -62,9 +76,11 @@ class PipelineWrapper:
     Handles creating and reading all queues.
     """
 
-    def __init__(self, device):
+    def __init__(self, device, include_nn=False):
         self.device = device
         self.names = ["rgb", "depth_fac", "depth_dist", "depth_conf"]
+        if include_nn:
+            self.names.append("nn")
         self.queues = {}
         for name in self.names:
             queue = self.device.getOutputQueue(name)
@@ -76,7 +92,9 @@ class PipelineWrapper:
         ret = {}
         for name in self.names:
             frame = self.queues[name].get()
-            if name == "rgb":
+            if name == "nn":
+                frame = frame
+            elif name == "rgb":
                 frame = frame.getCvFrame()
             else:
                 frame = crop_resize(frame.getFrame())
