@@ -2,7 +2,7 @@ import cv2
 import depthai
 import torch
 
-FPS = 5
+FPS = 20
 
 
 def create_pipeline(res, nn_path=None):
@@ -46,23 +46,24 @@ def create_pipeline(res, nn_path=None):
     imu.setMaxBatchReports(1)
     """
 
-    xout_rgb = pipeline.createXLinkOut()
-    xout_rgb.setStreamName("rgb")
-    cam_rgb.preview.link(xout_rgb.input)
+    if nn_path is None:
+        xout_rgb = pipeline.createXLinkOut()
+        xout_rgb.setStreamName("rgb")
+        cam_rgb.preview.link(xout_rgb.input)
 
-    xout_depth_fac = pipeline.createXLinkOut()
-    xout_depth_fac.setStreamName("depth_fac")
-    depth.disparity.link(xout_depth_fac.input)
+        xout_depth_fac = pipeline.createXLinkOut()
+        xout_depth_fac.setStreamName("depth_fac")
+        depth.disparity.link(xout_depth_fac.input)
 
-    xout_depth_dist = pipeline.createXLinkOut()
-    xout_depth_dist.setStreamName("depth_dist")
-    depth.depth.link(xout_depth_dist.input)
+        xout_depth_dist = pipeline.createXLinkOut()
+        xout_depth_dist.setStreamName("depth_dist")
+        depth.depth.link(xout_depth_dist.input)
 
-    xout_depth_conf = pipeline.createXLinkOut()
-    xout_depth_conf.setStreamName("depth_conf")
-    depth.confidenceMap.link(xout_depth_conf.input)
+        xout_depth_conf = pipeline.createXLinkOut()
+        xout_depth_conf.setStreamName("depth_conf")
+        depth.confidenceMap.link(xout_depth_conf.input)
 
-    if nn_path is not None:
+    else:
         xout_nn = pipeline.createXLinkOut()
         xout_nn.setStreamName("nn")
         nn.out.link(xout_nn.input)
@@ -83,9 +84,12 @@ class PipelineWrapper:
 
     def __init__(self, device, include_nn=False):
         self.device = device
-        self.names = ["rgb", "depth_fac", "depth_dist", "depth_conf"]
+
         if include_nn:
-            self.names.append("nn")
+            self.names = ["nn"]
+        else:
+            self.names = ["rgb", "depth_fac", "depth_dist", "depth_conf"]
+
         self.queues = {}
         for name in self.names:
             queue = self.device.getOutputQueue(name)
