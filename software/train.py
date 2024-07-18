@@ -128,6 +128,18 @@ class AutocarModel(torch.nn.Module):
         return x
 
 
+class OnnxAutocarModel(AutocarModel):
+    """
+    Inputs are raw depthai data.
+    """
+
+    def forward(self, rgb, depth):
+        rgb = rgb.float() / 255
+        depth = depth.float() / 255
+        x = torch.cat([rgb, depth], dim=1)
+        return super().forward(x)
+
+
 def preview_data(dataset):
     # Make grid with torchvision
     loader = DataLoader(dataset, batch_size=16, shuffle=True)
