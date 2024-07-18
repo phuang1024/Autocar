@@ -20,14 +20,27 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class Augmentation(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.aug = torchvision.transforms.Compose([
-            T.RandomRotation(5),
-            #T.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.4, hue=0.1),
-            T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True),
-        ])
+
+        self.rand_rot = T.RandomRotation(5)
+        self.rand_crop = T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True)
+        self.color_jitter = T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)
+
+        self.upper_mask = torch.zeros(256, 256)
+        for i in range(192):
+            self.upper_mask[i] = 1 - i / 192
+
+    def upper_noise(self, x):
+        return x + torch.randn_like(x) * self.upper_mask
 
     def forward(self, x):
-        x = self.aug(x)
+        if random.random() < 0.7:
+            x = self.rand_rot(x)
+        if random.random() < 0.3:
+            x = self.rand_crop(x)
+        if random.random() < 0.5:
+            x[..., :3, :, :] = self.color_jitter(x[..., :3, :, :])
+        if random.random() < 0.3:
+            x = self.upper_noise(x)
         return x
 
 
