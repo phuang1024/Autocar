@@ -66,7 +66,7 @@ struct Motors {
     }
 
     void write_vel_right(int vel) {
-        write_dir_right(vel < 0);
+        write_dir_right(vel >= 0);
         write_pwm_right(abs(vel));
     }
 
