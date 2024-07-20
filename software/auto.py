@@ -44,7 +44,8 @@ def auto_main(args, interface):
                         x = images_to_tensor(images)
                         x = x.float() / 255
                         x = x.unsqueeze(0).to(DEVICE)
-                        pred, curr_em = model(x, em).item()
+                        pred, curr_em = model(x, em)
+                        pred = pred.item()
                         em = em + curr_em
                         em = em / em.norm(dim=1, keepdim=True)
 
