@@ -46,8 +46,7 @@ def auto_main(args, interface):
                         x = x.unsqueeze(0).to(DEVICE)
                         pred, curr_em = model(x, em)
                         pred = pred.item()
-                        em = em + curr_em
-                        em = em / em.norm(dim=1, keepdim=True)
+                        em = 0.7 * em + curr_em
 
                 print("Pred", pred)
 

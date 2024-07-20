@@ -253,8 +253,7 @@ def train(args):
                 loss.backward()
                 optimizer.step()
 
-                em = em + curr_em.detach()
-                em = em / em.norm(dim=1, keepdim=True)
+                em = 0.7 * em + curr_em.detach()
 
                 writer.add_scalar("train_loss", loss.item(), step)
                 step += 1
@@ -272,8 +271,7 @@ def train(args):
                     loss = criterion(pred.squeeze(1), y[:, i])
                     total_loss += loss.item()
 
-                    em = em + curr_em.detach()
-                    em = em / em.norm(dim=1, keepdim=True)
+                    em = 0.7 * em + curr_em.detach()
 
                     pbar.set_description(f"Test: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
             writer.add_scalar("val_loss", total_loss / len(val_loader) / dataset.seq_size, epoch)
