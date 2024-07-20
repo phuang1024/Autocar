@@ -246,8 +246,11 @@ def train(args):
         for x, y in (pbar := tqdm(train_loader)):
             x, y = x.to(DEVICE), y.to(DEVICE)
             em = torch.randn(x.size(0), model.em_size).to(DEVICE)
+            do_dropout = random.random() < 0.5
             for i in range(x.size(1)):
                 optimizer.zero_grad()
+                if do_dropout:
+                    em = torch.zeros_like(em)
                 pred, curr_em = model(x[:, i, ...], em)
                 loss = criterion(pred.squeeze(1), y[:, i])
                 loss.backward()
