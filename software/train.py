@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 import torch
+import torch.nn as nn
 import torchvision
 import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader, random_split
@@ -17,7 +18,7 @@ if __name__ == "__main__":
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class Augmentation(torch.nn.Module):
+class Augmentation(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -33,26 +34,20 @@ class Augmentation(torch.nn.Module):
         return x + torch.randn_like(x) * self.upper_mask
 
     def forward(self, x):
-        if random.random() < 0.7:
-            x = self.rand_rot(x)
-        if random.random() < 0.3:
-            x = self.rand_crop(x)
         if random.random() < 0.5:
+            x = self.rand_rot(x)
+        if random.random() < 0.2:
+            x = self.rand_crop(x)
+        if random.random() < 0.4:
             x[..., :3, :, :] = self.color_jitter(x[..., :3, :, :])
-        if random.random() < 0.3:
+        if random.random() < 0.2:
             x = self.upper_noise(x)
         return x
 
 
 class ImageDataset(Dataset):
-    """
-    Dataset.
+    seq_size = 8
 
-    Simulated 3D transform augmentations:
-    - Rotation: Simulate 3D Z rotation via horizontal crop.
-    - X translation: Simulate 3D horizontal translation via shear.
-    - Z translation: Simulate 3D front/back translation via zoom in and depth adjust.
-    """
     rotate_std = 50
     shear_std = 10
 
@@ -68,9 +63,28 @@ class ImageDataset(Dataset):
         self.indices = sorted(indices)
 
     def __len__(self):
-        return len(self.indices)
+        return len(self.indices) - self.seq_size + 1
 
     def __getitem__(self, i):
+        """
+        Returns sequence of (images, labels).
+        Images shape is (seq_size, 4, 256, 256).
+        Labels shape is (seq_size,).
+        """
+        xs = []
+        labels = []
+        for j in range(self.seq_size):
+            x, label = self.load_sample(self.indices[i + j])
+            xs.append(x)
+            labels.append(label)
+
+        return torch.stack(xs), torch.tensor(labels, dtype=torch.float32)
+
+    def load_sample(self, i):
+        """
+        Load image and label, and apply augmentations.
+        Returns (tensor, float).
+        """
         # Read images
         x = torch.load(self.dir / f"{i}.pt")
         x = x.float() / 255
@@ -79,6 +93,20 @@ class ImageDataset(Dataset):
         with open(self.dir / f"{i}.txt", "r") as f:
             label = float(f.read())
 
+        x = self.aug(x)
+        x, label = self.aug_3dtrans(x, label)
+
+        label = np.clip(label, -1, 1)
+
+        return x, label
+
+    def aug_3dtrans(self, x, label):
+        """
+        Simulated 3D transform augmentations:
+        - Rotation: Simulate 3D Z rotation via horizontal crop.
+        - X translation: Simulate 3D horizontal translation via shear.
+        - Z translation: Simulate 3D front/back translation via zoom in and depth adjust.
+        """
         # Simulated 3D transform augmentations
         if random.random() < 0.3:
             # Rotation augmentation
@@ -115,30 +143,36 @@ class ImageDataset(Dataset):
 
         x = T.functional.resize(x, 256, antialias=True)
 
-        # Apply other augmentation
-        x = self.aug(x)
-
-        label = torch.clamp(torch.tensor(label).float(), -1, 1)
-
         return x, label
 
 
-class AutocarModel(torch.nn.Module):
-    def __init__(self, temperature=0.1):
+class AutocarModel(nn.Module):
+    temperature = 0.1
+    em_size = 512
+
+    def __init__(self):
         super().__init__()
 
         self.resnet = torchvision.models.resnet18()
-        self.resnet.conv1 = torch.nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.resnet.fc = torch.nn.Linear(512, 1)
+        self.resnet.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.resnet.fc = nn.Linear(512, self.em_size)
 
-        self.tanh = torch.nn.Tanh()
-        self.temperature = temperature
+        self.fc1 = nn.Sequential(
+            nn.Linear(self.em_size * 2, self.em_size),
+            nn.ReLU(),
+            nn.Linear(self.em_size, self.em_size),
+        )
+        self.fc2 = nn.Linear(self.em_size, 1)
 
-    def forward(self, x):
+        self.tanh = nn.Tanh()
+
+    def forward(self, x, em):
         x = self.resnet(x)
-        x = x * self.temperature
-        x = self.tanh(x)
-        return x
+        x = torch.cat([x, em], dim=1)
+        em = self.fc1(x)
+        x = self.fc2(em)
+        x = self.tanh(x * self.temperature)
+        return x, em
 
 
 class OnnxAutocarModel(AutocarModel):
@@ -188,7 +222,7 @@ def train(args):
     train_set, val_set = random_split(dataset, [train_len, val_len])
     loader_args = {
         "batch_size": 16,
-        "num_workers": 4,
+        "num_workers": 16,
         "pin_memory": True,
         "shuffle": True,
     }
@@ -200,7 +234,7 @@ def train(args):
         model.load_state_dict(torch.load(args.resume))
         print("Resumed model from", args.resume)
 
-    criterion = torch.nn.MSELoss()
+    criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     gamma = 1e-2 ** (1 / args.epochs)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
@@ -216,31 +250,36 @@ def train(args):
 
     for epoch in range(args.epochs):
         model.train()
-        total_loss = 0
         for x, y in (pbar := tqdm(train_loader)):
             x, y = x.to(DEVICE), y.to(DEVICE)
-            optimizer.zero_grad()
-            pred = model(x).squeeze(1)
-            loss = criterion(pred, y)
-            loss.backward()
-            total_loss += loss.item()
-            optimizer.step()
-            step += 1
+            em = torch.randn(x.size(0), model.em_size).to(DEVICE)
+            for i in range(x.size(1)):
+                optimizer.zero_grad()
+                pred, em = model(x[:, i, ...], em)
+                loss = criterion(pred.squeeze(1), y[:, i])
+                loss.backward()
+                optimizer.step()
 
-            pbar.set_description(f"Train: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
-            writer.add_scalar("train_loss", loss.item(), step)
+                em = em.detach()
+
+                writer.add_scalar("train_loss", loss.item(), step)
+                step += 1
+
+                pbar.set_description(f"Train: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
 
         model.eval()
         with torch.no_grad():
             total_loss = 0
             for x, y in (pbar := tqdm(val_loader)):
                 x, y = x.to(DEVICE), y.to(DEVICE)
-                pred = model(x).squeeze(1)
-                loss = criterion(pred, y)
-                total_loss += loss.item()
+                em = torch.randn(x.size(0), model.em_size).to(DEVICE)
+                for i in range(x.size(1)):
+                    pred, em = model(x[:, i, ...], em)
+                    loss = criterion(pred.squeeze(1), y[:, i])
+                    total_loss += loss.item()
 
-                pbar.set_description(f"Test: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
-            writer.add_scalar("val_loss", total_loss / len(val_loader), epoch)
+                    pbar.set_description(f"Test: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
+            writer.add_scalar("val_loss", total_loss / len(val_loader) / dataset.seq_size, epoch)
             writer.add_scalar("lr", optimizer.param_groups[0]["lr"], epoch)
 
         torch.save(model.state_dict(), args.results / "model.pt")
@@ -251,7 +290,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=Path, help="Data directory.")
     parser.add_argument("--results", type=Path, help="Results directory.")
-    parser.add_argument("--epochs", type=int, default=150)
+    parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--resume", help="Resume from given model path.")
     args = parser.parse_args()
