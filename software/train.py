@@ -34,6 +34,7 @@ class Augmentation(nn.Module):
         return x + torch.randn_like(x) * self.upper_mask
 
     def forward(self, x):
+        return x
         if random.random() < 0.5:
             x = self.rand_rot(x)
         if random.random() < 0.2:
@@ -111,7 +112,7 @@ class ImageDataset(Dataset):
         if random.random() < 0.3:
             # Rotation augmentation
             rotate = int(torch.randn(1).item() * self.rotate_std)
-            rotate = min(rotate, 150)
+            rotate = max(min(rotate, 150), -150)
             left = max(rotate, 0)
             width = 256 - abs(rotate)
             x = T.functional.crop(x, top=abs(rotate), left=left, height=width, width=width)
@@ -157,15 +158,22 @@ class AutocarModel(nn.Module):
         self.resnet.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.resnet.fc = nn.Linear(512, self.em_size)
 
-        self.fc = nn.Linear(self.em_size * 2, 1)
+        self.mlp = nn.Sequential(
+            nn.Linear(self.em_size, 512),
+            nn.LeakyReLU(),
+            nn.Linear(512, 256),
+            nn.LeakyReLU(),
+            nn.Linear(256, 128),
+            nn.LeakyReLU(),
+            nn.Linear(128, 1),
+        )
         self.tanh = nn.Tanh()
 
     def forward(self, x, em):
-        curr_em = self.resnet(x)
-        x = torch.cat([em, curr_em], dim=1)
-        x = self.fc(x)
+        em = self.resnet(x) + em
+        x = self.mlp(em)
         x = self.tanh(x * self.temperature)
-        return x, curr_em
+        return x, em
 
 
 class OnnxAutocarModel(AutocarModel):
@@ -251,12 +259,13 @@ def train(args):
                 optimizer.zero_grad()
                 if do_dropout:
                     em = torch.zeros_like(em)
-                pred, curr_em = model(x[:, i, ...], em)
+                pred, em = model(x[:, i, ...], em)
                 loss = criterion(pred.squeeze(1), y[:, i])
                 loss.backward()
                 optimizer.step()
 
-                em = 0.7 * em + curr_em.detach()
+                em = em.detach()
+                em *= 0.7
 
                 writer.add_scalar("train_loss", loss.item(), step)
                 step += 1
@@ -270,11 +279,11 @@ def train(args):
                 x, y = x.to(DEVICE), y.to(DEVICE)
                 em = torch.randn(x.size(0), model.em_size).to(DEVICE)
                 for i in range(x.size(1)):
-                    pred, curr_em = model(x[:, i, ...], em)
+                    pred, em = model(x[:, i, ...], em)
                     loss = criterion(pred.squeeze(1), y[:, i])
                     total_loss += loss.item()
 
-                    em = 0.7 * em + curr_em.detach()
+                    em *= 0.7
 
                     pbar.set_description(f"Test: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
             writer.add_scalar("val_loss", total_loss / len(val_loader) / dataset.seq_size, epoch)
