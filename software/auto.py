@@ -28,6 +28,8 @@ def auto_main(args, interface):
     with depthai.Device(pipeline) as device:
         wrapper = PipelineWrapper(device, include_nn=is_onnx)
 
+        em = torch.randn(1, model.em_size).to(DEVICE)
+
         while True:
             images = wrapper.get()
 
@@ -42,7 +44,9 @@ def auto_main(args, interface):
                         x = images_to_tensor(images)
                         x = x.float() / 255
                         x = x.unsqueeze(0).to(DEVICE)
-                        pred = model(x).item()
+                        pred, curr_em = model(x, em).item()
+                        em = em + curr_em
+                        em = em / em.norm(dim=1, keepdim=True)
 
                 print("Pred", pred)
 

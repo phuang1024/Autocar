@@ -157,22 +157,15 @@ class AutocarModel(nn.Module):
         self.resnet.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.resnet.fc = nn.Linear(512, self.em_size)
 
-        self.fc1 = nn.Sequential(
-            nn.Linear(self.em_size * 2, self.em_size),
-            nn.ReLU(),
-            nn.Linear(self.em_size, self.em_size),
-        )
-        self.fc2 = nn.Linear(self.em_size, 1)
-
+        self.fc = nn.Linear(self.em_size * 2, 1)
         self.tanh = nn.Tanh()
 
     def forward(self, x, em):
-        x = self.resnet(x)
-        x = torch.cat([x, em], dim=1)
-        em = self.fc1(x)
-        x = self.fc2(em)
+        curr_em = self.resnet(x)
+        x = torch.cat([em, curr_em], dim=1)
+        x = self.fc(x)
         x = self.tanh(x * self.temperature)
-        return x, em
+        return x, curr_em
 
 
 class OnnxAutocarModel(AutocarModel):
@@ -255,12 +248,13 @@ def train(args):
             em = torch.randn(x.size(0), model.em_size).to(DEVICE)
             for i in range(x.size(1)):
                 optimizer.zero_grad()
-                pred, em = model(x[:, i, ...], em)
+                pred, curr_em = model(x[:, i, ...], em)
                 loss = criterion(pred.squeeze(1), y[:, i])
                 loss.backward()
                 optimizer.step()
 
-                em = em.detach()
+                em = em + curr_em.detach()
+                em = em / em.norm(dim=1, keepdim=True)
 
                 writer.add_scalar("train_loss", loss.item(), step)
                 step += 1
@@ -274,9 +268,12 @@ def train(args):
                 x, y = x.to(DEVICE), y.to(DEVICE)
                 em = torch.randn(x.size(0), model.em_size).to(DEVICE)
                 for i in range(x.size(1)):
-                    pred, em = model(x[:, i, ...], em)
+                    pred, curr_em = model(x[:, i, ...], em)
                     loss = criterion(pred.squeeze(1), y[:, i])
                     total_loss += loss.item()
+
+                    em = em + curr_em.detach()
+                    em = em / em.norm(dim=1, keepdim=True)
 
                     pbar.set_description(f"Test: Epoch {epoch + 1}/{args.epochs}, loss: {loss.item():.4f}")
             writer.add_scalar("val_loss", total_loss / len(val_loader) / dataset.seq_size, epoch)
