@@ -44,10 +44,13 @@ def auto_main(args, interface):
                         x = x.unsqueeze(0).to(DEVICE)
                         pred = model(x).item()
 
+                interface.speed_mult = 1 - abs(pred) / 2
+
                 print("Pred", pred)
 
             else:
                 pred = 0
+                interface.speed_mult = 1
 
             interface.nn_pred = pred
 

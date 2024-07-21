@@ -18,8 +18,10 @@ class Interface:
     v1: float
     v2: float
 
-    # -1 to 1. Used in auto_rc.
+    # Used in auto_rc.
+    # -1 to 1
     nn_pred: float
+    speed_mult: float
 
     def __init__(self):
         self.run = True
@@ -30,6 +32,7 @@ class Interface:
         self.v1 = 0
         self.v2 = 0
         self.nn_pred = 0
+        self.speed_mult = 1
 
         self.ser = serial.Serial("/dev/ttyACM0", 115200)
 
@@ -93,7 +96,7 @@ class Interface:
         while self.run:
             self.ena = self.rc_values[4] > 0.5
 
-            speed = self.rc_values[2]
+            speed = self.rc_values[2] * self.speed_mult
             steer = self.nn_pred + (self.rc_values[0] * 2 - 1)
             steer *= speed * 1.5
             self.v1 = np.clip(speed + steer, -1, 1)
