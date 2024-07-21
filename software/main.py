@@ -19,6 +19,7 @@ def main(interface: Interface):
     subp = parser.add_subparsers(dest="command", required=True)
 
     rc_p = subp.add_parser("rc")
+    rc_p.add_argument("--type", type=str, default="tank", choices=["tank", "auto"])
 
     data_p = subp.add_parser("data")
     data_p.add_argument("--self-rc", action="store_true", help="Drive auto avoiding obstacles while getting data.")
@@ -31,7 +32,10 @@ def main(interface: Interface):
     args = parser.parse_args()
 
     if args.command == "rc":
-        interface.add_thread(interface.standard_rc)
+        if args.type == "tank":
+            interface.add_thread(interface.standard_rc)
+        elif args.type == "auto":
+            interface.add_thread(interface.auto_rc)
         while True:
             print(interface.rc_values)
             time.sleep(0.1)
