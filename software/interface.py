@@ -98,7 +98,7 @@ class Interface:
 
             speed = self.rc_values[2] * self.speed_mult
             steer = self.nn_pred + (self.rc_values[0] * 2 - 1)
-            steer *= speed * 1.5
+            steer *= speed * np.interp(speed, [0, 1], [2, 1])
             self.v1 = np.clip(speed + steer, -1, 1)
             self.v2 = np.clip(speed - steer, -1, 1)
 
