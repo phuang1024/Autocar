@@ -20,26 +20,21 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class Augmentation(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.aug = torchvision.transforms.Compose([
-            T.RandomRotation(5),
-            #T.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.4, hue=0.1),
-            T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True),
-        ])
+        self.rot = T.RandomRotation(3)
+        self.crop = T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True)
+        self.color = T.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2)
 
     def forward(self, x):
-        x = self.aug(x)
+        if random.random() < 0.5:
+            x = self.rot(x)
+        if random.random() < 0.5:
+            x = self.crop(x)
+        if random.random() < 0.5:
+            x[..., :3, :, :] = self.color(x[..., :3, :, :])
         return x
 
 
 class ImageDataset(Dataset):
-    """
-    Dataset.
-
-    Simulated 3D transform augmentations:
-    - Rotation: Simulate 3D Z rotation via horizontal crop.
-    - X translation: Simulate 3D horizontal translation via shear.
-    - Z translation: Simulate 3D front/back translation via zoom in and depth adjust.
-    """
     rotate_std = 50
     shear_std = 10
 
@@ -58,14 +53,26 @@ class ImageDataset(Dataset):
         return len(self.indices)
 
     def __getitem__(self, i):
-        # Read images
         x = torch.load(self.dir / f"{i}.pt")
         x = x.float() / 255
 
-        # Read label
         with open(self.dir / f"{i}.txt", "r") as f:
             label = float(f.read())
 
+        x, label = self.aug_3dtrans(x, label)
+        x = self.aug(x)
+
+        label = torch.clamp(torch.tensor(label).float(), -1, 1)
+
+        return x, label
+
+    def aug_3dtrans(self, x, label):
+        """
+        Simulated 3D transform augmentations:
+        - Rotation: Simulate 3D Z rotation via horizontal crop.
+        - X translation: Simulate 3D horizontal translation via shear.
+        - Z translation: Simulate 3D front/back translation via zoom in and depth adjust.
+        """
         # Simulated 3D transform augmentations
         if random.random() < 0.3:
             # Rotation augmentation
@@ -101,11 +108,6 @@ class ImageDataset(Dataset):
         """
 
         x = T.functional.resize(x, 256, antialias=True)
-
-        # Apply other augmentation
-        x = self.aug(x)
-
-        label = torch.clamp(torch.tensor(label).float(), -1, 1)
 
         return x, label
 
@@ -175,7 +177,7 @@ def train(args):
     train_set, val_set = random_split(dataset, [train_len, val_len])
     loader_args = {
         "batch_size": 16,
-        "num_workers": 4,
+        "num_workers": 16,
         "pin_memory": True,
         "shuffle": True,
     }
@@ -189,7 +191,7 @@ def train(args):
 
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    gamma = 1e-2 ** (1 / args.epochs)
+    gamma = 1e-1 ** (1 / args.epochs)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
     print("LR:", args.lr, "Gamma:", gamma)
 
@@ -238,7 +240,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=Path, help="Data directory.")
     parser.add_argument("--results", type=Path, help="Results directory.")
-    parser.add_argument("--epochs", type=int, default=150)
+    parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--resume", help="Resume from given model path.")
     args = parser.parse_args()
