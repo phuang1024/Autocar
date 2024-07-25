@@ -35,6 +35,9 @@ class Augmentation(torch.nn.Module):
 
 
 class ImageDataset(Dataset):
+    ts_offset = 5
+    """Time series offset. Positive means future label associated with image."""
+
     rotate_std = 50
     shear_std = 10
 
@@ -50,13 +53,15 @@ class ImageDataset(Dataset):
         self.indices = sorted(indices)
 
     def __len__(self):
-        return len(self.indices)
+        return len(self.indices) - self.ts_offset
 
     def __getitem__(self, i):
-        x = torch.load(self.dir / f"{i}.pt")
+        i_x = self.indices[i]
+        x = torch.load(self.dir / f"{i_x}.pt")
         x = x.float() / 255
 
-        with open(self.dir / f"{i}.txt", "r") as f:
+        i_y = self.indices[i + self.ts_offset]
+        with open(self.dir / f"{i_y}.txt", "r") as f:
             label = float(f.read())
 
         x, label = self.aug_3dtrans(x, label)
