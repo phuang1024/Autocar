@@ -1,4 +1,5 @@
 import time
+from math import atan2
 from threading import Thread
 
 import depthai
@@ -40,7 +41,10 @@ def rc_ctrl_loop(args):
             [2 * (x*z - y*w), 2 * (y*z + x*w), 1 - 2 * (x**2 + y**2)],
         ])
 
-        print(rot)
+        # Compute euler Z angle
+        forward = rot @ np.array([0, 1, 0])
+        angle = atan2(forward[0], forward[1])
+        print(angle)
 
 
 def auto_main(args, interface):
