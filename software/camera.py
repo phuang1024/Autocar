@@ -39,12 +39,10 @@ def create_pipeline(res, nn_path=None):
         cam_rgb.preview.link(nn.inputs["rgb"])
         depth.disparity.link(nn.inputs["depth"])
 
-    """
     imu = pipeline.createIMU()
-    imu.enableIMUSensor([depthai.IMUSensor.ROTATION_VECTOR], 10)
+    imu.enableIMUSensor([depthai.IMUSensor.ROTATION_VECTOR], FPS)
     imu.setBatchReportThreshold(1)
     imu.setMaxBatchReports(1)
-    """
 
     if nn_path is None:
         xout_rgb = pipeline.createXLinkOut()
@@ -68,11 +66,9 @@ def create_pipeline(res, nn_path=None):
         xout_nn.setStreamName("nn")
         nn.out.link(xout_nn.input)
 
-    """
     xout_imu = pipeline.createXLinkOut()
     xout_imu.setStreamName("imu")
     imu.out.link(xout_imu.input)
-    """
 
     return pipeline
 
