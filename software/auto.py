@@ -3,6 +3,7 @@ from math import atan2
 from threading import Thread
 
 import depthai
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -10,28 +11,57 @@ from camera import *
 from train import AutocarModel, DEVICE
 
 
-class AngVel:
+class Plotter:
     """
-    Calculate angular velocity via streaming IMU data and EMA.
+    Multi line online plotter.
+    """
+
+    def __init__(self, lines, max_len=100):
+        """
+        lines: List of str, names of the lines.
+        """
+        self.lines = lines
+        self.max_len = max_len
+        self.data = np.zeros((len(lines), max_len))
+
+    def update(self, values):
+        """
+        Plot in matplotlib.
+
+        values: List of float, values to plot.
+        """
+        self.data = np.roll(self.data, -1, axis=1)
+        self.data[:, -1] = values
+
+        plt.clf()
+        for i, line in enumerate(self.lines):
+            plt.plot(self.data[i], label=line)
+        plt.legend()
+        plt.show()
+
+
+class Derivative:
+    """
+    Calculate derivative via streaming data and EMA.
     """
 
     def __init__(self, k=0.4):
         self.k = k
         self.value = 0
-        self.last_angle = 0
+        self.last_value = 0
         self.last_time = time.time()
 
-    def update(self, angle):
+    def update(self, value):
         """
-        Computes velocity = delta(angle) / delta(time).
+        Computes velocity = delta(value) / delta(time).
         """
         now = time.time()
         dt = now - self.last_time
         dt = max(dt, 1e-3)
-        d_angle = angle - self.last_angle
+        d_angle = value - self.last_value
 
         vel = d_angle / dt
-        self.last_angle = angle
+        self.last_value = value
         self.last_time = now
 
         self.value = self.k * vel + (1 - self.k) * self.value
@@ -60,9 +90,18 @@ def rc_ctrl_loop(args):
     q_imu.setMaxSize(1)
     q_imu.setBlocking(False)
 
-    ang_vel_avg = AngVel()
-    steer_adjust = 0
-    """Added to steer. Constantly adjust to produce angular velocity."""
+    deriv_func = Derivative()
+    integral = 0
+    """PID integral term."""
+    target = 0
+    """Target value (angular position)."""
+    kp = 1
+    ki = 1
+    kd = 1
+
+    dt = 1 / FPS
+
+    #plotter = Plotter(["error", "steer"])
 
     while args["run"]:
         # Get rotation matrix
@@ -79,17 +118,20 @@ def rc_ctrl_loop(args):
         # Compute euler Z angle
         forward = rot @ np.array([0, 1, 0])
         angle = atan2(forward[0], forward[1])
+        target += args["steer"] * 0.1
+        target = 0.9 * target + 0.1 * angle
 
-        ang_vel = ang_vel_avg.update(angle)
-        target_ang_vel = args["steer"] * 0.5
-        delta = target_ang_vel - ang_vel
+        error = target - angle
+        deriv = deriv_func.update(error)
+        integral += error
+        integral *= 0.8
 
-        steer_adjust += delta * 0.3
-        steer_adjust *= 0.9
-        #steer_adjust = np.clip(steer_adjust, -1, 1)
+        #print(error, integral, deriv)
 
-        interface.steer_input = args["steer"] + np.clip(steer_adjust * delta, -1, 1)
-        print(args["steer"], steer_adjust, ang_vel, target_ang_vel)
+        steer = kp * error + ki * integral + kd * deriv
+        interface.steer_input = steer
+
+        #plotter.update([error, steer])
 
 
 def auto_main(args, interface):
@@ -142,6 +184,7 @@ def auto_main(args, interface):
             else:
                 pred = 0
 
+            #pred = interface.rc_values[0] * 2 - 1
             ctrl_args["steer"] = pred
 
             time.sleep(0.01)
