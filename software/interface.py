@@ -20,8 +20,7 @@ class Interface:
 
     # Used in auto_rc.
     # -1 to 1
-    nn_pred: float
-    speed_mult: float
+    steer_input: float
 
     def __init__(self):
         self.run = True
@@ -31,8 +30,7 @@ class Interface:
         self.ena = False
         self.v1 = 0
         self.v2 = 0
-        self.nn_pred = 0
-        self.speed_mult = 1
+        self.steer_input = 0
 
         self.ser = serial.Serial("/dev/ttyACM0", 115200)
 
@@ -89,15 +87,15 @@ class Interface:
         """
         Merges NN's direction prediction with manual RC control/override.
 
-        Update `self.nn_pred` from outside.
+        Update `self.steer_input` from outside.
         """
         print("Begin auto rc control.")
 
         while self.run:
             self.ena = self.rc_values[4] > 0.5
 
-            speed = self.rc_values[2] * self.speed_mult
-            steer = self.nn_pred + (self.rc_values[0] * 2 - 1)
+            speed = self.rc_values[2]
+            steer = self.steer_input + (self.rc_values[0] * 2 - 1)
             steer *= speed * np.interp(speed, [0, 1], [2, 1])
             self.v1 = np.clip(speed + steer, -1, 1)
             self.v2 = np.clip(speed - steer, -1, 1)

@@ -10,11 +10,42 @@ from camera import *
 from train import AutocarModel, DEVICE
 
 
+class AngVel:
+    """
+    Calculate angular velocity via streaming IMU data and EMA.
+    """
+
+    def __init__(self, k=0.4):
+        self.k = k
+        self.value = 0
+        self.last_angle = 0
+        self.last_time = time.time()
+
+    def update(self, angle):
+        """
+        Computes velocity = delta(angle) / delta(time).
+        """
+        now = time.time()
+        dt = now - self.last_time
+        dt = max(dt, 1e-3)
+        d_angle = angle - self.last_angle
+
+        vel = d_angle / dt
+        self.last_angle = angle
+        self.last_time = now
+
+        self.value = self.k * vel + (1 - self.k) * self.value
+
+        return self.value
+
+
 def rc_ctrl_loop(args):
     """
     Converts steering input into speed and steer values.
     Reduces speed when steering.
     Uses IMU to monitor turning speed.
+
+    Will modify `interface.steer_input` based on steer.
 
     args: Dict.
         interface: Interface instance.
@@ -28,6 +59,10 @@ def rc_ctrl_loop(args):
     q_imu = device.getOutputQueue("imu")
     q_imu.setMaxSize(1)
     q_imu.setBlocking(False)
+
+    ang_vel_avg = AngVel()
+    steer_adjust = 0
+    """Added to steer. Constantly adjust to produce angular velocity."""
 
     while args["run"]:
         # Get rotation matrix
@@ -44,7 +79,14 @@ def rc_ctrl_loop(args):
         # Compute euler Z angle
         forward = rot @ np.array([0, 1, 0])
         angle = atan2(forward[0], forward[1])
-        print(angle)
+
+        ang_vel = ang_vel_avg.update(angle)
+        target_ang_vel = args["steer"]
+        steer_adjust += (target_ang_vel - ang_vel) * 0.1
+        steer_adjust = np.clip(steer_adjust, -0.5, 0.5)
+
+        interface.steer_input = args["steer"] + steer_adjust
+        print(args["steer"], steer_adjust, ang_vel, target_ang_vel)
 
 
 def auto_main(args, interface):
@@ -92,14 +134,11 @@ def auto_main(args, interface):
                         x = x.unsqueeze(0).to(DEVICE)
                         pred = model(x).item()
 
-                interface.speed_mult = 1 - abs(pred) / 2
-
                 print("Pred", pred)
 
             else:
                 pred = 0
-                interface.speed_mult = 1
 
-            interface.nn_pred = pred
+            ctrl_args["steer"] = pred
 
             time.sleep(0.01)
