@@ -81,11 +81,14 @@ def rc_ctrl_loop(args):
         angle = atan2(forward[0], forward[1])
 
         ang_vel = ang_vel_avg.update(angle)
-        target_ang_vel = args["steer"]
-        steer_adjust += (target_ang_vel - ang_vel) * 0.1
-        steer_adjust = np.clip(steer_adjust, -0.5, 0.5)
+        target_ang_vel = args["steer"] * 0.5
+        delta = target_ang_vel - ang_vel
 
-        interface.steer_input = args["steer"] + steer_adjust
+        steer_adjust += delta * 0.3
+        steer_adjust *= 0.9
+        #steer_adjust = np.clip(steer_adjust, -1, 1)
+
+        interface.steer_input = args["steer"] + np.clip(steer_adjust * delta, -1, 1)
         print(args["steer"], steer_adjust, ang_vel, target_ang_vel)
 
 
