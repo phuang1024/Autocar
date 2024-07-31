@@ -22,15 +22,24 @@ class Augmentation(torch.nn.Module):
         super().__init__()
         self.rot = T.RandomRotation(3)
         self.crop = T.RandomResizedCrop(256, scale=(0.8, 1.0), antialias=True)
-        self.color = T.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2)
+        self.color = T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.4, hue=0.2)
+
+        self.upper_mask = torch.zeros(256, 256)
+        for i in range(192):
+            self.upper_mask[i] = 1 - i / 192
+
+    def upper_noise(self, x):
+        return x + torch.randn_like(x) * self.upper_mask
 
     def forward(self, x):
         if random.random() < 0.5:
             x = self.rot(x)
-        if random.random() < 0.5:
+        if random.random() < 0.2:
             x = self.crop(x)
         if random.random() < 0.5:
             x[..., :3, :, :] = self.color(x[..., :3, :, :])
+        if random.random() < 0.2:
+            x = self.upper_noise(x)
         return x
 
 
