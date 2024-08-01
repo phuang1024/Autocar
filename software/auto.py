@@ -96,12 +96,8 @@ def rc_ctrl_loop(args):
     target = 0
     """Target value (angular position)."""
     kp = 1
-    ki = 1
-    kd = 1
-
-    dt = 1 / FPS
-
-    #plotter = Plotter(["error", "steer"])
+    ki = 0.5
+    kd = 0.3
 
     while args["run"]:
         # Get rotation matrix
@@ -118,20 +114,15 @@ def rc_ctrl_loop(args):
         # Compute euler Z angle
         forward = rot @ np.array([0, 1, 0])
         angle = atan2(forward[0], forward[1])
-        target += args["steer"] * 0.1
-        target = 0.9 * target + 0.1 * angle
 
+        target = 0.2 * (args["steer"] * 0.5 + angle) + 0.8 * target
         error = target - angle
         deriv = deriv_func.update(error)
         integral += error
         integral *= 0.8
 
-        #print(error, integral, deriv)
-
         steer = kp * error + ki * integral + kd * deriv
         interface.steer_input = steer
-
-        #plotter.update([error, steer])
 
 
 def auto_main(args, interface):
@@ -184,7 +175,7 @@ def auto_main(args, interface):
             else:
                 pred = 0
 
-            #pred = interface.rc_values[0] * 2 - 1
+            pred = interface.rc_values[0] * 2 - 1
             ctrl_args["steer"] = pred
 
             time.sleep(0.01)
