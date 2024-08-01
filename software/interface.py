@@ -68,6 +68,8 @@ class Interface:
             # Write out
             v1 = int(self.v1 * 255)
             v2 = int(self.v2 * 255)
+            v1 = np.clip(v1, -255, 255)
+            v2 = np.clip(v2, -255, 255)
             self.ser.write(f"{int(self.ena)} {v1} {v2}\n".encode("utf-8"))
 
     def standard_rc(self):
