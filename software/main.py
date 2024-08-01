@@ -38,6 +38,8 @@ def main(interface: Interface):
             interface.add_thread(interface.auto_rc)
         while True:
             print(interface.rc_values)
+            if args.type == "auto":
+                interface.steer_input = interface.rc_values[0] * 2 - 1
             time.sleep(0.1)
 
     elif args.command == "data":

@@ -180,7 +180,7 @@ def auto_main(args, interface):
             else:
                 pred = 0
 
-            pred = interface.rc_values[0] * 2 - 1
+            pred += interface.rc_values[0] * 2 - 1
             ctrl_args["steer"] = pred
 
             time.sleep(0.01)

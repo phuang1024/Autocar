@@ -97,7 +97,7 @@ class Interface:
             self.ena = self.rc_values[4] > 0.5
 
             speed = self.rc_values[2]
-            steer = self.steer_input# + (self.rc_values[0] * 2 - 1)
+            steer = self.steer_input
             steer *= speed * np.interp(speed, [0, 1], [2, 1])
             self.v1 = np.clip(speed + steer, -1, 1)
             self.v2 = np.clip(speed - steer, -1, 1)
