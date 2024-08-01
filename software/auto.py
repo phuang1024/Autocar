@@ -99,6 +99,7 @@ def rc_ctrl_loop(args):
     ki = 0.5
     kd = 0.3
 
+    last_angle = 0
     while args["run"]:
         # Get rotation matrix
         imu_data = q_imu.get().packets[0].rotationVector
@@ -114,6 +115,10 @@ def rc_ctrl_loop(args):
         # Compute euler Z angle
         forward = rot @ np.array([0, 1, 0])
         angle = atan2(forward[0], forward[1])
+        if abs(angle - last_angle) > 5:
+            # Handle 2pi wrap
+            target = angle
+        last_angle = angle
 
         target = 0.2 * (args["steer"] * 0.5 + angle) + 0.8 * target
         error = target - angle
