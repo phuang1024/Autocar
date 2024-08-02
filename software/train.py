@@ -18,6 +18,10 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Augmentation(torch.nn.Module):
+    """
+    Label invariant augmentations
+    """
+
     def __init__(self):
         super().__init__()
         self.rot = T.RandomRotation(3)
@@ -38,7 +42,7 @@ class Augmentation(torch.nn.Module):
             x = self.crop(x)
         if random.random() < 0.5:
             x[..., :3, :, :] = self.color(x[..., :3, :, :])
-        if random.random() < 0.2:
+        if random.random() < 0.1:
             x = self.upper_noise(x)
         return x
 
@@ -61,6 +65,11 @@ class ImageDataset(Dataset):
                 indices.add(int(file.stem))
         self.indices = sorted(indices)
 
+        self.left_mask = torch.zeros(256, 256)
+        for i in range(192):
+            self.left_mask[:, i] = 1 - i / 192
+        self.right_mask = torch.flip(self.left_mask, [1])
+
     def __len__(self):
         return len(self.indices) - self.ts_offset
 
@@ -76,8 +85,6 @@ class ImageDataset(Dataset):
         x, label = self.aug_3dtrans(x, label)
         x = self.aug(x)
 
-        label = torch.clamp(torch.tensor(label).float(), -1, 1)
-
         return x, label
 
     def aug_3dtrans(self, x, label):
@@ -86,6 +93,7 @@ class ImageDataset(Dataset):
         - Rotation: Simulate 3D Z rotation via horizontal crop.
         - X translation: Simulate 3D horizontal translation via shear.
         - Z translation: Simulate 3D front/back translation via zoom in and depth adjust.
+        - Obstacle: Simulate obstacle to one side.
         """
         # Simulated 3D transform augmentations
         if random.random() < 0.3:
@@ -111,6 +119,15 @@ class ImageDataset(Dataset):
 
             label = label * fac
 
+        elif random.random() < 0.1:
+            # Obstacle augmentation
+            direction = random.random() < 0.5
+            label = label + (0.5 if direction else -0.5)
+
+            mask = self.left_mask if direction else self.right_mask
+            mask += torch.randn_like(mask) * 0.2
+            x[3] = random.uniform(0.5, 1) * mask + x[3] * (1 - mask)
+
         """
         elif random.random() < 0.3:
             # X translation augmentation
@@ -122,6 +139,8 @@ class ImageDataset(Dataset):
         """
 
         x = T.functional.resize(x, 256, antialias=True)
+        x = torch.clamp(x, 0, 1)
+        label = torch.clamp(torch.tensor(label).float(), -1, 1)
 
         return x, label
 
