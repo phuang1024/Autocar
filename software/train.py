@@ -96,17 +96,17 @@ class ImageDataset(Dataset):
         - Obstacle: Simulate obstacle to one side.
         """
         # Simulated 3D transform augmentations
-        if random.random() < 0.3:
+        if random.random() < 0.4:
             # Rotation augmentation
             rotate = int(torch.randn(1).item() * self.rotate_std)
-            rotate = min(rotate, 150)
+            rotate = max(min(rotate, 150), -150)
             left = max(rotate, 0)
             width = 256 - abs(rotate)
             x = T.functional.crop(x, top=abs(rotate), left=left, height=width, width=width)
 
             label = label - rotate / self.rotate_std / 3
 
-        elif random.random() < 0.3:
+        elif random.random() < 0.2:
             # Z translation augmentation
             zoom = random.uniform(0, 1)
             zoom_px = int(zoom * 50)
@@ -119,7 +119,7 @@ class ImageDataset(Dataset):
 
             label = label * fac
 
-        elif random.random() < 0.1:
+        elif random.random() < 0.2:
             # Obstacle augmentation
             direction = random.random() < 0.5
             label = label + (0.5 if direction else -0.5)
