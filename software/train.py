@@ -126,7 +126,9 @@ class ImageDataset(Dataset):
 
             mask = self.left_mask if direction else self.right_mask
             mask += torch.randn_like(mask) * 0.2
-            x[3] = random.uniform(0.5, 1) * mask + x[3] * (1 - mask)
+
+            for i in range(4):
+                x[i] = random.uniform(0.5, 1) * mask + x[i] * (1 - mask)
 
         """
         elif random.random() < 0.3:
