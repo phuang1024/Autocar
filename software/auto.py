@@ -130,6 +130,7 @@ def rc_ctrl_loop(args):
         interface.steer_input = steer
 
 
+@torch.no_grad()
 def auto_main(args, interface):
     """
     Main for auto driving.
@@ -159,6 +160,7 @@ def auto_main(args, interface):
 
         wrapper = PipelineWrapper(device, include_nn=is_onnx)
 
+        ctrl = 0
         while True:
             images = wrapper.get()
 
@@ -167,20 +169,19 @@ def auto_main(args, interface):
             # Infer model
             if nn_enabled:
                 if is_onnx:
-                    pred = images["nn"].getData().view(np.float16).item()
+                    y = images["nn"].getData().view(np.float16).item()
                 else:
-                    with torch.no_grad():
-                        x = images_to_tensor(images)
-                        x = x.float() / 255
-                        x = x.unsqueeze(0).to(DEVICE)
-                        pred = model(x).item()
+                    x = images_to_tensor(images)
+                    x = x.float() / 255
+                    x = x.unsqueeze(0).to(DEVICE)
+                    y = model(x).item()
 
-                print("Pred", pred)
+                ctrl = 0.5 * ctrl + 0.5 * y
+                print("Model output:", y, "Control:", ctrl)
 
             else:
-                pred = 0
+                ctrl = 0
 
-            pred += interface.rc_values[0] * 2 - 1
-            ctrl_args["steer"] = pred
+            ctrl_args["steer"] = ctrl + interface.rc_values[0] * 2 - 1
 
             time.sleep(0.01)
