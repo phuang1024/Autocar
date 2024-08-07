@@ -182,6 +182,6 @@ def auto_main(args, interface):
             else:
                 ctrl = 0
 
-            ctrl_args["steer"] = ctrl + interface.rc_values[0] * 2 - 1
+            ctrl_args["steer"] = ctrl
 
             time.sleep(0.01)
