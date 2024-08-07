@@ -7,7 +7,7 @@ Self driving robot car.
 ![](assets/image.jpg)
 
 <div align="center">
-    <video src="https://github.com/phuang1024/Autocar/raw/master/assets/video.mp4" controls width=100%></video>
+    <video src="https://github.com/phuang1024/Autocar/raw/master/assets/video.mp4" width="100%" />
 </div>
 
 The car automatically drives and avoids obstacles.
