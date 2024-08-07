@@ -2,6 +2,14 @@
 
 Self driving robot car.
 
+[Paper](assets/paper.pdf)
+
+![](assets/image.jpg)
+
+![](assets/video.mp4)
+
+The car automatically drives and avoids obstacles.
+
 ## Software
 
 ### Get data:
