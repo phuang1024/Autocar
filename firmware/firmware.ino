@@ -113,6 +113,7 @@ struct BattV {
     bool update() {
         voltage = read();
         bool is_low = voltage < LOW_THRES;
+        /*
         if (is_low) {
             // update flash
             if (millis() - flash_time > 1000) {
@@ -126,6 +127,7 @@ struct BattV {
         } else {
             digitalWrite(13, HIGH);
         }
+        */
         return millis() - low_time < LOW_COOLDOWN;
     }
 };
