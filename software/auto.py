@@ -184,4 +184,4 @@ def auto_main(args, interface):
 
             ctrl_args["steer"] = ctrl
 
-            time.sleep(0.01)
+            time.sleep(.01)
